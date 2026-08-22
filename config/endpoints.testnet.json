@@ -1,0 +1,56 @@
+{
+  "$comment": [
+    "discover が引く候補レジストリ（testnet 限定）。",
+    "live 側は本セッションの egress ポリシー（mpp.dev / x402.org へ 403）で到達確認ができていない。",
+    "reachability を 'unverified' のまま推測で 'ok' に書き換えないこと。",
+    "本番のディレクトリ（x402 Bazaar / MPP discovery）を引く場合は",
+    "DISCOVERY_DIRECTORY_URL を設定する。設定時はこのファイルより優先される。"
+  ],
+  "endpoints": [
+    {
+      "id": "mock-x402-weather",
+      "rail": "x402",
+      "endpoint": "http://127.0.0.1:8402/x402/weather",
+      "description": "ローカル模擬売り手（x402 exact / base-sepolia）",
+      "statedPrice": "0.01",
+      "kind": "mock-local",
+      "reachability": "ok"
+    },
+    {
+      "id": "mock-x402-premium",
+      "rail": "x402",
+      "endpoint": "http://127.0.0.1:8402/x402/premium",
+      "description": "ローカル模擬売り手（上限超過の採取用・高額）",
+      "statedPrice": "0.50",
+      "kind": "mock-local",
+      "reachability": "ok"
+    },
+    {
+      "id": "mock-mpp-quote",
+      "rail": "mpp",
+      "endpoint": "http://127.0.0.1:8402/mpp/quote",
+      "description": "ローカル模擬売り手（MPP evm/charge / base-sepolia）",
+      "statedPrice": "0.02",
+      "kind": "mock-local",
+      "reachability": "ok"
+    },
+    {
+      "id": "live-x402-demo",
+      "rail": "x402",
+      "endpoint": "https://x402.org/protected",
+      "description": "x402 公開デモ（testnet）",
+      "statedPrice": "unknown",
+      "kind": "live",
+      "reachability": "unverified"
+    },
+    {
+      "id": "live-mpp-demo",
+      "rail": "mpp",
+      "endpoint": "https://mpp.dev/",
+      "description": "MPP 公開テスト用（testnet 可否とパスは未確認）",
+      "statedPrice": "unknown",
+      "kind": "live",
+      "reachability": "unverified"
+    }
+  ]
+}

@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 860" width="1180" height="860" font-family="Helvetica Neue, Helvetica, Arial, 'Hiragino Sans', 'Noto Sans JP', sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
+    </marker>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b91c1c"/>
+    </marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#15803d"/>
+    </marker>
+  </defs>
+  <rect width="1180" height="860" fill="#ffffff"/>
+
+  <text x="40" y="42" font-size="21" font-weight="700" fill="#0f172a">1セッションの境界と、人間承認が残る2点</text>
+  <text x="40" y="66" font-size="13" fill="#475569">AWS AgentCore payments 買い手ハーネス（testnet）。モデルに見えるのは discover と pay の2ツールだけ。</text>
+
+  <!-- session boundary -->
+  <rect x="318" y="92" width="500" height="700" rx="14" fill="#f8fafc" stroke="#94a3b8" stroke-width="2" stroke-dasharray="8 5"/>
+  <text x="336" y="116" font-size="13" font-weight="700" fill="#475569">セッション境界（discover → success / decline の1サイクル）</text>
+  <text x="336" y="136" font-size="11.5" fill="#64748b">鍵・決済セッションはこの枠を出ない。枠を抜けるとき closeSession() で破棄。</text>
+
+  <!-- model -->
+  <rect x="40" y="150" width="240" height="150" rx="10" fill="#eef2ff" stroke="#6366f1" stroke-width="1.6"/>
+  <text x="60" y="178" font-size="15" font-weight="700" fill="#3730a3">モデル（LLM）</text>
+  <text x="60" y="204" font-size="12.5" fill="#3730a3">見えるツールは2つだけ</text>
+  <rect x="60" y="216" width="200" height="30" rx="6" fill="#ffffff" stroke="#a5b4fc"/>
+  <text x="72" y="236" font-size="12.5" fill="#1e1b4b">discover(query)</text>
+  <rect x="60" y="252" width="200" height="30" rx="6" fill="#ffffff" stroke="#a5b4fc"/>
+  <text x="72" y="272" font-size="12.5" fill="#1e1b4b">pay(endpoint, request)</text>
+  <text x="40" y="322" font-size="11.5" fill="#b91c1c">見えないもの: 秘密鍵 / 署名 / 上限値 / チェーン / facilitator</text>
+
+  <!-- discover -->
+  <rect x="346" y="160" width="444" height="66" rx="9" fill="#ffffff" stroke="#334155" stroke-width="1.4"/>
+  <text x="364" y="186" font-size="14" font-weight="700" fill="#0f172a">discover</text>
+  <text x="364" y="208" font-size="12" fill="#334155">ディレクトリ + 402プローブ → 候補一覧（endpoint / price / rail）</text>
+
+  <!-- pay wrapper -->
+  <rect x="346" y="256" width="444" height="440" rx="9" fill="#ffffff" stroke="#334155" stroke-width="1.6"/>
+  <text x="364" y="282" font-size="14" font-weight="700" fill="#0f172a">pay ／ 内側に三層ラッパー（モデルは迂回できない）</text>
+
+  <!-- step: bare request -->
+  <rect x="364" y="296" width="408" height="40" rx="7" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="378" y="321" font-size="12.5" fill="#0f172a">④ 素のリクエスト → 402 と支払い要求を受ける</text>
+
+  <!-- layer2 -->
+  <rect x="364" y="350" width="408" height="88" rx="7" fill="#fff7ed" stroke="#fb923c" stroke-width="1.4"/>
+  <text x="378" y="374" font-size="13" font-weight="700" fill="#9a3412">層2 上限（問題B：支出範囲の拘束）</text>
+  <text x="378" y="395" font-size="12" fill="#7c2d12">per_call_max $0.05 ／ session_max $0.20 を atomic で機械判定</text>
+  <text x="378" y="414" font-size="12" fill="#7c2d12">⑤ within → 続行 ／ 超過 → decline（再送を発行しない）</text>
+  <text x="378" y="431" font-size="11" fill="#9a3412">※ AgentCore の SessionLimits はセッション累計のみ。1回あたり上限はハーネス側で実装</text>
+
+  <!-- layer3 -->
+  <rect x="364" y="452" width="408" height="80" rx="7" fill="#fefce8" stroke="#ca8a04" stroke-width="1.4"/>
+  <text x="378" y="476" font-size="13" font-weight="700" fill="#854d0e">層3 人間判断（問題C：判断の責任）</text>
+  <text x="378" y="497" font-size="12" fill="#713f12">初回エンドポイント → needs_approval で停止し、人間の y/N を待つ</text>
+  <text x="378" y="516" font-size="12" fill="#713f12">自動承認は testnet でも既定オフ（AUTO_APPROVE=false）</text>
+
+  <!-- layer1 -->
+  <rect x="364" y="546" width="408" height="80" rx="7" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.4"/>
+  <text x="378" y="570" font-size="13" font-weight="700" fill="#1e40af">層1 鍵保管（問題A：クレデンシャル露出）</text>
+  <text x="378" y="591" font-size="12" fill="#1e3a8a">⑥ AgentCore ProcessPayment（または一時鍵）が署名 → 決済証明</text>
+  <text x="378" y="610" font-size="12" fill="#1e3a8a">鍵はツール引数・戻り値・ログのどこにも出ない</text>
+
+  <!-- retry -->
+  <rect x="364" y="640" width="408" height="40" rx="7" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.4"/>
+  <text x="378" y="665" font-size="12.5" fill="#14532d">⑦ 証明をヘッダに載せて再送 → 200 / success + receipt</text>
+
+  <!-- seller -->
+  <rect x="856" y="296" width="284" height="140" rx="10" fill="#ffffff" stroke="#334155" stroke-width="1.4"/>
+  <text x="874" y="322" font-size="14" font-weight="700" fill="#0f172a">売り手（課金エンドポイント）</text>
+  <text x="874" y="346" font-size="12" fill="#334155">x402: 402 + accepts[] / X-PAYMENT</text>
+  <text x="874" y="366" font-size="12" fill="#334155">MPP : 402 + WWW-Authenticate: Payment</text>
+  <text x="874" y="392" font-size="12" fill="#334155">受領時: X-PAYMENT-RESPONSE</text>
+  <text x="874" y="412" font-size="12" fill="#334155">　　　 / Payment-Receipt</text>
+
+  <rect x="856" y="546" width="284" height="80" rx="10" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="5 4"/>
+  <text x="874" y="572" font-size="13" font-weight="700" fill="#475569">facilitator（売り手側が呼ぶ）</text>
+  <text x="874" y="594" font-size="12" fill="#64748b">verify → settle。買い手ハーネスは叩かない。</text>
+  <text x="874" y="612" font-size="12" fill="#64748b">AgentCore が返すのは PROOF_GENERATED まで。</text>
+
+  <!-- human -->
+  <rect x="40" y="452" width="240" height="112" rx="10" fill="#fefce8" stroke="#ca8a04" stroke-width="1.6"/>
+  <text x="60" y="478" font-size="14" font-weight="700" fill="#854d0e">人間</text>
+  <text x="60" y="500" font-size="12" fill="#713f12">CLI プロンプトで y / N</text>
+  <text x="60" y="520" font-size="12" fill="#713f12">承認ログ: 誰が・いつ・いくら</text>
+  <text x="60" y="540" font-size="12" fill="#713f12">（approval.decision イベント）</text>
+  <text x="60" y="557" font-size="11" fill="#854d0e">承認は都度。持ち越さない。</text>
+
+  <!-- arrows model->discover -->
+  <path d="M280 231 L346 190" stroke="#334155" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+  <text x="286" y="200" font-size="11.5" fill="#334155">① discover</text>
+  <path d="M346 214 L280 246" stroke="#334155" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+  <text x="286" y="262" font-size="11.5" fill="#334155">② 候補（price, rail）</text>
+
+  <path d="M280 272 L346 290" stroke="#334155" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+  <text x="272" y="292" font-size="11.5" fill="#334155">③ pay</text>
+
+  <!-- pay -> seller -->
+  <path d="M772 316 L856 330" stroke="#334155" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+  <path d="M856 356 L772 330" stroke="#334155" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+  <text x="780" y="300" font-size="11" fill="#334155">GET（支払いヘッダ無し）</text>
+  <text x="780" y="374" font-size="11" fill="#b91c1c">402 + 支払い要求</text>
+
+  <path d="M772 656 L856 620" stroke="#15803d" stroke-width="1.8" fill="none" marker-end="url(#ag)"/>
+  <text x="782" y="676" font-size="11" fill="#15803d">再送 → 200 + receipt</text>
+
+  <!-- layer3 -> human -->
+  <path d="M364 492 L280 500" stroke="#ca8a04" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+  <path d="M280 524 L364 516" stroke="#ca8a04" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+
+  <!-- decline arrow -->
+  <path d="M364 414 L300 404 L300 360 L280 360" stroke="#b91c1c" stroke-width="1.8" fill="none" marker-end="url(#ar)"/>
+  <text x="150" y="356" font-size="11.5" fill="#b91c1c">declined(limit_exceeded)</text>
+  <text x="150" y="372" font-size="11.5" fill="#b91c1c">— 決済に進まない</text>
+
+  <!-- approval badges -->
+  <circle cx="352" cy="466" r="15" fill="#ca8a04"/>
+  <text x="352" y="471" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">1</text>
+  <circle cx="352" cy="404" r="15" fill="#b91c1c"/>
+  <text x="352" y="409" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">2</text>
+
+  <!-- legend -->
+  <rect x="40" y="600" width="240" height="192" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="60" y="626" font-size="13" font-weight="700" fill="#0f172a">人間承認が残る2点</text>
+  <circle cx="72" cy="650" r="11" fill="#ca8a04"/>
+  <text x="72" y="655" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">1</text>
+  <text x="92" y="648" font-size="12" fill="#334155">初回エンドポイントへの支払い</text>
+  <text x="92" y="665" font-size="11.5" fill="#64748b">→ 承認が取れるまで決済しない</text>
+  <circle cx="72" cy="694" r="11" fill="#b91c1c"/>
+  <text x="72" y="699" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">2</text>
+  <text x="92" y="692" font-size="12" fill="#334155">上限超過時の停止</text>
+  <text x="92" y="709" font-size="11.5" fill="#64748b">→ 人間に聞くまでもなく decline。</text>
+  <text x="92" y="725" font-size="11.5" fill="#64748b">　「承認せず終わった」を記録する</text>
+  <text x="60" y="756" font-size="11.5" fill="#475569">与信・後払い（問題D）は範囲外。</text>
+  <text x="60" y="773" font-size="11.5" fill="#475569">委任層 A / B / C に閉じる。</text>
+
+  <text x="40" y="826" font-size="11" fill="#94a3b8">出典: 402の形は x402 v1 spec / MPP draft-httpauth-payment-00。API形状は @aws-sdk/client-bedrock-agentcore 3.1116.0 の生成モデル。</text>
+</svg>

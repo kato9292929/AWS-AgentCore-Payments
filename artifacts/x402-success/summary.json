@@ -1,0 +1,43 @@
+{
+  "runId": "x402-success",
+  "label": "x402-success",
+  "config": {
+    "region": "us-east-1",
+    "chain": "BASE_SEPOLIA",
+    "facilitator": "https://x402.org/facilitator",
+    "testnet": true,
+    "per_call_max_usd": "0.050000",
+    "session_max_usd": "0.200000",
+    "auto_approve": false
+  },
+  "backend": "local-signer",
+  "planner": "scripted",
+  "tools_exposed_to_model": [
+    "discover",
+    "pay"
+  ],
+  "steps": 3,
+  "results": [
+    {
+      "status": "success",
+      "receipt": {
+        "reference": "0x3bd59c9295b7defc29a01c8627051da3290fd71c4f40efa5adb6aeca94fe348b",
+        "amount": "10000",
+        "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "network": "base-sepolia",
+        "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+        "rail": "x402",
+        "timestamp": "2026-08-22T18:01:52.025Z",
+        "proofSource": "local-signer",
+        "testnet": true,
+        "merchant": "mock-local"
+      }
+    }
+  ],
+  "limits": {
+    "spent_usd": "0.010000",
+    "remaining_usd": "0.190000",
+    "per_call_max_usd": "0.050000",
+    "session_max_usd": "0.200000"
+  }
+}

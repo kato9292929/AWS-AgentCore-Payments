@@ -1,0 +1,167 @@
+{
+  "generatedAt": "2026-08-22T18:02:04.366Z",
+  "note": "merchant は mock-local（ローカル模擬売り手）。公開 testnet エンドポイントへの到達は 本セッションの egress ポリシーで不可。docs/T4-T5-blocked.md を参照。",
+  "scenarios": [
+    {
+      "label": "x402-success",
+      "purpose": "T4: x402 経路の 402→pay→success 一周",
+      "expect": "success",
+      "runId": "x402-success",
+      "status": "success",
+      "exitCode": 0,
+      "artifactsDir": "/home/user/AWS-AgentCore-Payments/artifacts/x402-success",
+      "ok": true,
+      "collected": {
+        "discover_candidates": true,
+        "402_response": true,
+        "limit_decision": true,
+        "approval_record": true,
+        "retry_request_sent": true,
+        "success_200": true,
+        "receipt": true,
+        "mainnet_halt": false
+      }
+    },
+    {
+      "label": "mpp-success",
+      "purpose": "T5: MPP 経路の 402→pay→success 一周",
+      "expect": "success",
+      "runId": "mpp-success",
+      "status": "success",
+      "exitCode": 0,
+      "artifactsDir": "/home/user/AWS-AgentCore-Payments/artifacts/mpp-success",
+      "ok": true,
+      "collected": {
+        "discover_candidates": true,
+        "402_response": true,
+        "limit_decision": true,
+        "approval_record": true,
+        "retry_request_sent": true,
+        "success_200": true,
+        "receipt": true,
+        "mainnet_halt": false
+      }
+    },
+    {
+      "label": "limit-exceeded",
+      "purpose": "T6: per_call_max 超過で decline（再送が発生しないこと）",
+      "expect": "declined",
+      "runId": "limit-exceeded",
+      "status": "declined",
+      "exitCode": 0,
+      "artifactsDir": "/home/user/AWS-AgentCore-Payments/artifacts/limit-exceeded",
+      "ok": true,
+      "collected": {
+        "discover_candidates": true,
+        "402_response": true,
+        "limit_decision": true,
+        "approval_record": true,
+        "retry_request_sent": false,
+        "success_200": false,
+        "receipt": false,
+        "mainnet_halt": false
+      }
+    },
+    {
+      "label": "session-cap-exceeded",
+      "purpose": "T6: session_max 超過で decline",
+      "expect": "declined",
+      "runId": "session-cap-exceeded",
+      "status": "declined",
+      "exitCode": 0,
+      "artifactsDir": "/home/user/AWS-AgentCore-Payments/artifacts/session-cap-exceeded",
+      "ok": true,
+      "collected": {
+        "discover_candidates": true,
+        "402_response": true,
+        "limit_decision": true,
+        "approval_record": true,
+        "retry_request_sent": false,
+        "success_200": false,
+        "receipt": false,
+        "mainnet_halt": false
+      }
+    },
+    {
+      "label": "not-approved",
+      "purpose": "T7: 初回エンドポイントを承認しなければ決済に進まない",
+      "expect": "declined",
+      "runId": "not-approved",
+      "status": "declined",
+      "exitCode": 0,
+      "artifactsDir": "/home/user/AWS-AgentCore-Payments/artifacts/not-approved",
+      "ok": true,
+      "collected": {
+        "discover_candidates": true,
+        "402_response": true,
+        "limit_decision": true,
+        "approval_record": true,
+        "retry_request_sent": false,
+        "success_200": false,
+        "receipt": false,
+        "mainnet_halt": false
+      }
+    },
+    {
+      "label": "cli-approval-prompt",
+      "purpose": "T7: 対話 CLI で人間が承認した記録（誰が・いつ・いくら）",
+      "expect": "success",
+      "runId": "cli-approval-prompt",
+      "status": "success",
+      "exitCode": 0,
+      "artifactsDir": "/home/user/AWS-AgentCore-Payments/artifacts/cli-approval-prompt",
+      "ok": true,
+      "collected": {
+        "discover_candidates": true,
+        "402_response": true,
+        "limit_decision": true,
+        "approval_record": true,
+        "retry_request_sent": true,
+        "success_200": true,
+        "receipt": true,
+        "mainnet_halt": false
+      }
+    },
+    {
+      "label": "cli-approval-denied",
+      "purpose": "T7: 対話 CLI で人間が否認した記録",
+      "expect": "declined",
+      "runId": "cli-approval-denied",
+      "status": "declined",
+      "exitCode": 0,
+      "artifactsDir": "/home/user/AWS-AgentCore-Payments/artifacts/cli-approval-denied",
+      "ok": true,
+      "collected": {
+        "discover_candidates": true,
+        "402_response": true,
+        "limit_decision": true,
+        "approval_record": true,
+        "retry_request_sent": false,
+        "success_200": false,
+        "receipt": false,
+        "mainnet_halt": false
+      }
+    },
+    {
+      "label": "mainnet-halt",
+      "purpose": "7節: mainnet を提示されたら決済せずセッションごと停止",
+      "expect": "halt",
+      "runId": "mainnet-halt",
+      "status": "halt",
+      "exitCode": 2,
+      "artifactsDir": "/home/user/AWS-AgentCore-Payments/artifacts/mainnet-halt",
+      "ok": true,
+      "collected": {
+        "discover_candidates": true,
+        "402_response": true,
+        "limit_decision": false,
+        "approval_record": false,
+        "retry_request_sent": false,
+        "success_200": false,
+        "receipt": false,
+        "mainnet_halt": true
+      }
+    }
+  ],
+  "allExpected": true
+}

@@ -1,0 +1,27 @@
+{
+  "name": "agentcore-payments-buyer-harness",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Minimal buyer-side harness for AWS Bedrock AgentCore payments (x402 / MPP), testnet only.",
+  "scripts": {
+    "mock:merchant": "tsx mock/server.ts",
+    "harness": "tsx src/cli.ts",
+    "run:all": "tsx scripts/run-all.ts",
+    "check:tools": "tsx scripts/check-tool-surface.ts",
+    "check:secrets": "tsx scripts/check-no-key-material.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.72.0",
+    "@aws-sdk/client-bedrock-agentcore": "^3.1116.0",
+    "@aws-sdk/client-bedrock-agentcore-control": "^3.1116.0",
+    "viem": "^2.55.19"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}

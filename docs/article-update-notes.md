@@ -1,0 +1,50 @@
+# 構想記事の実測差し替え用メモ
+
+計画値・推測で書いてある箇所を、本セッションの実測に置き換えるための一覧。
+「置換後」は artifacts の実ログから取れる文言だけを書いてある。
+**未取得・未検証の欄を、埋まったことにして書かないこと。**
+
+## A. 置き換えられる（実測がある）
+
+| # | 計画側の書き方 | 置換後（実測） | 出典 |
+|---|---|---|---|
+| A1 | 「AgentCore は x402 と MPP の両方に対応」 | 一次確認済み。`PaymentType` enum が `CRYPTO_X402` / `MPP` の2値。ただし1回の `ProcessPayment` はどちらか片方（union） | `docs/T1-agentcore-findings.md` §1 |
+| A2 | 「AgentCore が決済してくれる」 | **誤り。** `PaymentStatus` の値は `PROOF_GENERATED` のみ。AgentCore が返すのは署名済みの支払い証明までで、402 への再送とオンチェーン決済は外側に残る | 同 §4 |
+| A3 | 「上限はインフラ層で強制できる」 | 半分だけ正しい。`SessionLimits.maxSpendAmount` は**セッション累計のみ**、通貨は `USD` 固定。**1回あたり上限に対応する API パラメータは無い** | 同 §3 |
+| A4 | 「testnet で試せる」 | `BlockchainChainId` の testnet 値は `BASE_SEPOLIA` と `SOLANA_DEVNET` の2つ | 同 §2 |
+| A5 | 「AWS だけで完結する」 | **誤り。** 買い手ウォレットは `PaymentConnectorType` = `CoinbaseCDP` か `StripePrivy` のコネクタ配下。Coinbase か Stripe のクレデンシャルが要る | 同 §6 |
+| A6 | 「モデルに見せるツールは2つで足りる（想定）」 | 実測で成立。`TOOL_DEFS` は長さ2、3つ目は `dispatchTool` が拒否。402の一周・上限・承認は全部 `pay` の内側に入った | `artifacts/*/events.jsonl` の `session.start.tool_count=2`、`npm run check:tools` |
+| A7 | 「上限を超えたら止まる（想定）」 | 実測。`$0.50` の要求に対し per_call_max `$0.05` で `declined(limit_exceeded)`、**再送のHTTPリクエストが1件も出ていない** | `artifacts/limit-exceeded/events.jsonl` |
+| A8 | 「人間承認を残す（想定）」 | 実測。承認ログに 誰が・いつ・いくら。否認したまま決済が起きた事例ゼロ | `artifacts/cli-approval-denied`, `artifacts/not-approved` |
+| A9 | 「MPP は x402 より複雑（想定）」 | 買い手から見ると**逆**。MPP は 402 の `WWW-Authenticate` を verbatim で渡すだけ（`MppPaymentInput.wwwAuthenticateHeaders`）。x402 は payload を自分で組み立てて渡す。<br>ただし MPP は金額が base64url(JCS JSON) の中にあるので、**上限判定のためには結局パースが要る** | `docs/T1-agentcore-findings.md` §5、`src/rails/mpp.ts` |
+| A10 | 「ガス代の扱い」 | `MppPaymentInput.buyerPaysGasFees` があり、**省略・false は「ガス肩代わりを拒否する」意思表示**。チャレンジがガスを sponsor しない場合、false のままだと ValidationException で止まる。本ハーネスは明示 false | 同 §5 |
+
+## B. 置き換えられない（未取得・未検証のまま書く）
+
+| # | 項目 | 現状 | 記事での書き方 |
+|---|---|---|---|
+| B1 | 公開 testnet エンドポイントへの実払い一周 | **未実施**。x402.org / mpp.dev とも egress 403 | 「本セッションでは公開エンドポイントに到達できず、模擬売り手に対する一周のみ」と明記する |
+| B2 | AgentCore `ProcessPayment` の実行 | **未実行**。コントロールプレーンの資格情報が無く payment manager を作れない | 「API 形状は一次確認済み、実行は未達」 |
+| B3 | 料金・リージョン提供状況 | **未確認**。料金ページに到達不可 | 数字を書かない |
+| B4 | `upto`（従量）スキーム | **未検証**。`exact` のみ実装 | 「GA で追加されたが本作業では触っていない」 |
+| B5 | Coinbase Bazar MCP（GA で追加の x402 エンドポイント集） | **未確認** | discover の候補源として名前だけ挙げ、中身は書かない |
+| B6 | 案1（`na4b6acb98907`）の実測値 | **未取得**。note.com に到達不可 | 6軸表の案1列は空欄のまま。埋めてから公開する |
+
+## C. 記事の骨に効く発見（計画時に無かった論点）
+
+1. **AgentCore を入れても層3（人間承認）は自分で書く**。
+   API に承認ゲートに相当する概念が見当たらない。`userId` / `agentName` は
+   observability 用のラベル。「判断の責任」は誰も肩代わりしてくれない。
+
+2. **per_call 上限が無いのは効く**。エージェント決済で怖いのは
+   「1回$100」より「$0.01 を 10万回」だが、AgentCore が持つのは累計側だけ。
+   逆に言うと**累計はインフラが見てくれる**ので、自分で書くべきは1回あたりと承認点。
+
+3. **依存が1つ増える**。AWS に寄せると Coinbase/Stripe が消えるのではなく、
+   AWS + コネクタ提供元の2段になる。「AWS だけで完結」は書けない。
+
+4. **買い手ハーネスの分界点**。AgentCore は「鍵と署名」を持つ。
+   402 の解釈・上限・承認・再送は買い手側に残る。
+   売り手側エッジ（CloudFront/WAF の x402、`nde1375fd27c9`）とは別物という
+   注記は正しかったが、**買い手側でも AgentCore が担うのは一部**という点は
+   計画時より踏み込んで書ける。

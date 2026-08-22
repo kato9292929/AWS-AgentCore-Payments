@@ -1,0 +1,36 @@
+{
+  "runId": "live-attempt",
+  "label": "live-attempt",
+  "config": {
+    "region": "us-east-1",
+    "chain": "BASE_SEPOLIA",
+    "facilitator": "https://x402.org/facilitator",
+    "testnet": true,
+    "per_call_max_usd": "0.050000",
+    "session_max_usd": "0.200000",
+    "auto_approve": false
+  },
+  "backend": "local-signer",
+  "planner": "scripted",
+  "tools_exposed_to_model": [
+    "discover",
+    "pay"
+  ],
+  "steps": 3,
+  "results": [
+    {
+      "status": "declined",
+      "reason": "not_approved",
+      "detail": {
+        "approver": "hello@x402jp.com",
+        "at": "2026-08-22T18:02:14.428Z"
+      }
+    }
+  ],
+  "limits": {
+    "spent_usd": "0.000000",
+    "remaining_usd": "0.200000",
+    "per_call_max_usd": "0.050000",
+    "session_max_usd": "0.200000"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "runId": "session-cap-exceeded",
+  "label": "session-cap-exceeded",
+  "config": {
+    "region": "us-east-1",
+    "chain": "BASE_SEPOLIA",
+    "facilitator": "https://x402.org/facilitator",
+    "testnet": true,
+    "per_call_max_usd": "0.050000",
+    "session_max_usd": "0.005000",
+    "auto_approve": false
+  },
+  "backend": "local-signer",
+  "planner": "scripted",
+  "tools_exposed_to_model": [
+    "discover",
+    "pay"
+  ],
+  "steps": 3,
+  "results": [
+    {
+      "status": "declined",
+      "reason": "limit_exceeded",
+      "detail": {
+        "amount_usd": "0.010000",
+        "per_call_max_usd": "0.050000",
+        "session_max_usd": "0.005000",
+        "session_spent_usd": "0.000000"
+      }
+    }
+  ],
+  "limits": {
+    "spent_usd": "0.000000",
+    "remaining_usd": "0.005000",
+    "per_call_max_usd": "0.050000",
+    "session_max_usd": "0.005000"
+  }
+}

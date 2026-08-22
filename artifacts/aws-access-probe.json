@@ -1,0 +1,16 @@
+{
+  "region": "us-east-1",
+  "probedAt": "2026-08-22T18:01:49.435Z",
+  "dataPlane_ListPaymentSessions": {
+    "ok": false,
+    "errorName": "AccessDeniedException",
+    "httpStatus": 403,
+    "message": "Payment manager not found"
+  },
+  "controlPlane_ListPaymentManagers": {
+    "ok": false,
+    "errorName": "UnrecognizedClientException",
+    "httpStatus": 403,
+    "message": "The security token included in the request is invalid."
+  }
+}

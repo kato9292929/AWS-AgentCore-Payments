@@ -1,0 +1,43 @@
+{
+  "runId": "mpp-success",
+  "label": "mpp-success",
+  "config": {
+    "region": "us-east-1",
+    "chain": "BASE_SEPOLIA",
+    "facilitator": "https://x402.org/facilitator",
+    "testnet": true,
+    "per_call_max_usd": "0.050000",
+    "session_max_usd": "0.200000",
+    "auto_approve": false
+  },
+  "backend": "local-signer",
+  "planner": "scripted",
+  "tools_exposed_to_model": [
+    "discover",
+    "pay"
+  ],
+  "steps": 3,
+  "results": [
+    {
+      "status": "success",
+      "receipt": {
+        "reference": "0xf3c7837d9173ef799eb80975078cd75a48ddaaa8cdefb3574645dee026f50d4e",
+        "amount": "20000",
+        "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "network": "base-sepolia",
+        "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+        "rail": "mpp",
+        "timestamp": "2026-08-22T18:01:53.749Z",
+        "proofSource": "local-signer",
+        "testnet": true,
+        "merchant": "mock-local"
+      }
+    }
+  ],
+  "limits": {
+    "spent_usd": "0.020000",
+    "remaining_usd": "0.180000",
+    "per_call_max_usd": "0.050000",
+    "session_max_usd": "0.200000"
+  }
+}

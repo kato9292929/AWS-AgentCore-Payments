@@ -1,0 +1,2 @@
+{"seq":1,"ts":"2026-08-22T18:02:15.956Z","runId":"agentcore-attempt","type":"harness.config","region":"us-east-1","chain":"BASE_SEPOLIA","facilitator":"https://x402.org/facilitator","testnet":true,"per_call_max_usd":"0.050000","session_max_usd":"0.200000","auto_approve":false,"backend":"agentcore","planner":"scripted","allow_live_endpoints":false,"label":"agentcore-attempt"}
+{"seq":2,"ts":"2026-08-22T18:02:16.099Z","runId":"agentcore-attempt","type":"harness.error","error":"Payment manager not found"}
