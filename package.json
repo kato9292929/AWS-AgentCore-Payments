@@ -10,13 +10,20 @@
     "run:all": "tsx scripts/run-all.ts",
     "check:tools": "tsx scripts/check-tool-surface.ts",
     "check:secrets": "tsx scripts/check-no-key-material.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "provision": "tsx scripts/provision-agentcore.mts",
+    "check:ga": "tsx scripts/check-ga-shapes.ts",
+    "check:redaction": "tsx scripts/check-redaction.ts",
+    "check": "npm run typecheck && npm run check:tools && npm run check:ga && npm run check:redaction && npm run check:facilitator && npm run check:secrets",
+    "check:facilitator": "tsx scripts/check-facilitator.ts"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.72.0",
-    "@aws-sdk/client-bedrock-agentcore": "^3.1116.0",
-    "@aws-sdk/client-bedrock-agentcore-control": "^3.1116.0",
+    "@aws-sdk/client-bedrock-agentcore": "^3.1117.0",
+    "@aws-sdk/client-bedrock-agentcore-control": "^3.1117.0",
     "viem": "^2.55.19"
   },
   "devDependencies": {

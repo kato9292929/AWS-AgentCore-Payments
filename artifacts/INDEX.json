@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-22T18:02:04.366Z",
+  "generatedAt": "2026-08-25T17:16:29.111Z",
   "note": "merchant は mock-local（ローカル模擬売り手）。公開 testnet エンドポイントへの到達は 本セッションの egress ポリシーで不可。docs/T4-T5-blocked.md を参照。",
   "scenarios": [
     {
@@ -19,7 +19,11 @@
         "retry_request_sent": true,
         "success_200": true,
         "receipt": true,
-        "mainnet_halt": false
+        "mainnet_halt": false,
+        "limit_rule": null,
+        "process_payment_called": true,
+        "approval_scope_recorded": true,
+        "resend_rejected": false
       }
     },
     {
@@ -39,7 +43,11 @@
         "retry_request_sent": true,
         "success_200": true,
         "receipt": true,
-        "mainnet_halt": false
+        "mainnet_halt": false,
+        "limit_rule": null,
+        "process_payment_called": true,
+        "approval_scope_recorded": true,
+        "resend_rejected": false
       }
     },
     {
@@ -59,7 +67,11 @@
         "retry_request_sent": false,
         "success_200": false,
         "receipt": false,
-        "mainnet_halt": false
+        "mainnet_halt": false,
+        "limit_rule": "per_call_max",
+        "process_payment_called": false,
+        "approval_scope_recorded": false,
+        "resend_rejected": false
       }
     },
     {
@@ -79,7 +91,11 @@
         "retry_request_sent": false,
         "success_200": false,
         "receipt": false,
-        "mainnet_halt": false
+        "mainnet_halt": false,
+        "limit_rule": "session_max",
+        "process_payment_called": false,
+        "approval_scope_recorded": false,
+        "resend_rejected": false
       }
     },
     {
@@ -99,7 +115,11 @@
         "retry_request_sent": false,
         "success_200": false,
         "receipt": false,
-        "mainnet_halt": false
+        "mainnet_halt": false,
+        "limit_rule": null,
+        "process_payment_called": false,
+        "approval_scope_recorded": false,
+        "resend_rejected": false
       }
     },
     {
@@ -119,7 +139,11 @@
         "retry_request_sent": true,
         "success_200": true,
         "receipt": true,
-        "mainnet_halt": false
+        "mainnet_halt": false,
+        "limit_rule": null,
+        "process_payment_called": true,
+        "approval_scope_recorded": true,
+        "resend_rejected": false
       }
     },
     {
@@ -139,7 +163,83 @@
         "retry_request_sent": false,
         "success_200": false,
         "receipt": false,
-        "mainnet_halt": false
+        "mainnet_halt": false,
+        "limit_rule": null,
+        "process_payment_called": false,
+        "approval_scope_recorded": false,
+        "resend_rejected": false
+      }
+    },
+    {
+      "label": "per-call-only",
+      "purpose": "B1: セッション累計は未超過でも per_call_max だけで decline する（ハーネス側にしか無い拘束）",
+      "expect": "declined",
+      "runId": "per-call-only",
+      "status": "declined",
+      "exitCode": 0,
+      "artifactsDir": "/home/user/AWS-AgentCore-Payments/artifacts/per-call-only",
+      "ok": true,
+      "collected": {
+        "discover_candidates": true,
+        "402_response": true,
+        "limit_decision": true,
+        "approval_record": true,
+        "retry_request_sent": false,
+        "success_200": false,
+        "receipt": false,
+        "mainnet_halt": false,
+        "limit_rule": "per_call_max",
+        "process_payment_called": false,
+        "approval_scope_recorded": false,
+        "resend_rejected": false
+      }
+    },
+    {
+      "label": "grant-scope-exceeded",
+      "purpose": "B3: 同一オリジンでも、承認した金額($0.01)を超える請求($0.03)は再度承認を求める",
+      "expect": "declined",
+      "runId": "grant-scope-exceeded",
+      "status": "declined",
+      "exitCode": 0,
+      "artifactsDir": "/home/user/AWS-AgentCore-Payments/artifacts/grant-scope-exceeded",
+      "ok": true,
+      "collected": {
+        "discover_candidates": true,
+        "402_response": true,
+        "limit_decision": true,
+        "approval_record": true,
+        "retry_request_sent": true,
+        "success_200": true,
+        "receipt": true,
+        "mainnet_halt": false,
+        "limit_rule": null,
+        "process_payment_called": true,
+        "approval_scope_recorded": true,
+        "resend_rejected": false
+      }
+    },
+    {
+      "label": "merchant-rejects",
+      "purpose": "B2: 再送が 402 で返されても署名し直さない（再送は1回まで）",
+      "expect": "declined",
+      "runId": "merchant-rejects",
+      "status": "declined",
+      "exitCode": 0,
+      "artifactsDir": "/home/user/AWS-AgentCore-Payments/artifacts/merchant-rejects",
+      "ok": true,
+      "collected": {
+        "discover_candidates": true,
+        "402_response": true,
+        "limit_decision": true,
+        "approval_record": true,
+        "retry_request_sent": true,
+        "success_200": false,
+        "receipt": false,
+        "mainnet_halt": false,
+        "limit_rule": null,
+        "process_payment_called": true,
+        "approval_scope_recorded": true,
+        "resend_rejected": true
       }
     },
     {
@@ -159,7 +259,11 @@
         "retry_request_sent": false,
         "success_200": false,
         "receipt": false,
-        "mainnet_halt": true
+        "mainnet_halt": true,
+        "limit_rule": null,
+        "process_payment_called": false,
+        "approval_scope_recorded": false,
+        "resend_rejected": false
       }
     }
   ],

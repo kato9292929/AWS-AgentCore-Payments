@@ -1,13 +1,13 @@
 {
-  "runId": "not-approved",
-  "label": "not-approved",
+  "runId": "per-call-only",
+  "label": "per-call-only",
   "config": {
     "region": "us-east-1",
     "chain": "BASE_SEPOLIA",
     "facilitator": "https://x402.org/facilitator",
     "testnet": true,
     "per_call_max_usd": "0.050000",
-    "session_max_usd": "0.200000",
+    "session_max_usd": "5.000000",
     "auto_approve": false
   },
   "backend": "local-signer",
@@ -20,18 +20,21 @@
   "results": [
     {
       "status": "declined",
-      "reason": "not_approved",
+      "reason": "limit_exceeded",
       "detail": {
-        "approver": "hello@x402jp.com",
-        "at": "2026-08-25T17:16:21.004Z"
+        "amount_usd": "0.500000",
+        "per_call_max_usd": "0.050000",
+        "session_max_usd": "5.000000",
+        "session_spent_usd": "0.000000",
+        "rule": "per_call_max"
       }
     }
   ],
   "limits": {
     "spent_usd": "0.000000",
-    "remaining_usd": "0.200000",
+    "remaining_usd": "5.000000",
     "per_call_max_usd": "0.050000",
-    "session_max_usd": "0.200000"
+    "session_max_usd": "5.000000"
   },
   "approval_grants": [],
   "duplicate_guard": {

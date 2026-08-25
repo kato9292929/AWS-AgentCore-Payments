@@ -1,6 +1,6 @@
 {
-  "runId": "not-approved",
-  "label": "not-approved",
+  "runId": "merchant-rejects",
+  "label": "merchant-rejects",
   "config": {
     "region": "us-east-1",
     "chain": "BASE_SEPOLIA",
@@ -20,11 +20,7 @@
   "results": [
     {
       "status": "declined",
-      "reason": "not_approved",
-      "detail": {
-        "approver": "hello@x402jp.com",
-        "at": "2026-08-25T17:16:21.004Z"
-      }
+      "reason": "payment_rejected_by_merchant"
     }
   ],
   "limits": {
@@ -33,11 +29,18 @@
     "per_call_max_usd": "0.050000",
     "session_max_usd": "0.200000"
   },
-  "approval_grants": [],
+  "approval_grants": [
+    {
+      "origin": "http://127.0.0.1:8402",
+      "ceiling_usd": "0.010000",
+      "approver": "hello@x402jp.com",
+      "at": "2026-08-25T17:16:27.677Z"
+    }
+  ],
   "duplicate_guard": {
     "max_process_payment_attempts": 1,
     "max_resend_attempts": 1,
-    "tracked_demands": 0,
+    "tracked_demands": 1,
     "settled_fingerprints": 0
   }
 }

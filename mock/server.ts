@@ -27,6 +27,13 @@ const USDC = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"; // Base Sepolia USDC
 const PAY_TO = "0x209693Bc6afc0C5328bA36FaF03C514EF312287C";
 const CHALLENGE_SECRET = randomBytes(32); // プロセス内のみ
 
+/**
+ * 使用済み nonce。EIP-3009 はトークンコントラクトが nonce の一意性を強制するので、
+ * オンチェーンなら再利用は必ず落ちる。ここでもそれを再現する。
+ * （これが無いと「同じ署名を投げ直せば何度でも通る」模擬になってしまう）
+ */
+const USED_NONCES = new Set<string>();
+
 interface Resource {
   path: string;
   rail: "x402" | "mpp";
@@ -50,6 +57,20 @@ const RESOURCES: Resource[] = [
     amount: "500000", // $0.50 — per_call_max 超過の採取用
     description: "Testnet premium sample (x402 exact, over-limit fixture)",
     content: { report: "premium", source: "mock-local" },
+  },
+  {
+    path: "/x402/standard",
+    rail: "x402",
+    amount: "30000", // $0.03 — 承認済み金額($0.01)は超えるが per_call_max($0.05)は超えない
+    description: "Testnet standard sample (承認範囲の検証用)",
+    content: { report: "standard", source: "mock-local" },
+  },
+  {
+    path: "/x402/always-402",
+    rail: "x402",
+    amount: "10000",
+    description: "正しい支払いでも 402 を返し続ける売り手（再送上限の検証用）",
+    content: { note: "never served" },
   },
   {
     path: "/x402/mainnet-trap",
@@ -126,34 +147,48 @@ interface VerifyRequest {
 
 async function facilitatorVerify(req: VerifyRequest): Promise<{ valid: boolean; reason?: string }> {
   const now = BigInt(Math.floor(Date.now() / 1000));
+  if (USED_NONCES.has(req.nonce.toLowerCase())) {
+    // オンチェーンなら transferWithAuthorization が revert する場面
+    return { valid: false, reason: "nonce_already_used" };
+  }
   if (BigInt(req.validBefore) < now) return { valid: false, reason: "authorization_expired" };
   if (BigInt(req.validAfter) > now) return { valid: false, reason: "authorization_not_yet_valid" };
 
-  const ok = await verifyTypedData({
-    address: req.from,
-    domain: {
-      name: req.domainName,
-      version: req.domainVersion,
-      chainId: req.chainId,
-      verifyingContract: req.asset,
-    },
-    types: TRANSFER_WITH_AUTHORIZATION_TYPES,
-    primaryType: "TransferWithAuthorization",
-    message: {
-      from: req.from,
-      to: req.to,
-      value: BigInt(req.value),
-      validAfter: BigInt(req.validAfter),
-      validBefore: BigInt(req.validBefore),
-      nonce: req.nonce,
-    },
-    signature: req.signature,
-  });
+  // 壊れた署名は verifyTypedData が例外を投げる（v が不正など）。
+  // 売り手が 500 を返すと「サーバの不具合」と区別がつかないので、
+  // ここで握って 402 invalid_signature に落とす。
+  let ok = false;
+  try {
+    ok = await verifyTypedData({
+      address: req.from,
+      domain: {
+        name: req.domainName,
+        version: req.domainVersion,
+        chainId: req.chainId,
+        verifyingContract: req.asset,
+      },
+      types: TRANSFER_WITH_AUTHORIZATION_TYPES,
+      primaryType: "TransferWithAuthorization",
+      message: {
+        from: req.from,
+        to: req.to,
+        value: BigInt(req.value),
+        validAfter: BigInt(req.validAfter),
+        validBefore: BigInt(req.validBefore),
+        nonce: req.nonce,
+      },
+      signature: req.signature,
+    });
+  } catch (err) {
+    log("verify threw:", (err as Error).message);
+    return { valid: false, reason: "invalid_signature" };
+  }
   return ok ? { valid: true } : { valid: false, reason: "invalid_signature" };
 }
 
-/** 決済シミュレーション。オンチェーン送信はしない。 */
+/** 決済シミュレーション。オンチェーン送信はしない。nonce はここで消費する。 */
 function facilitatorSettle(nonce: string): { success: true; transaction: string } {
+  USED_NONCES.add(nonce.toLowerCase());
   // 決済参照は nonce から決定論的に作る（同一 nonce の再送を同じ参照に落とす）
   const tx = keccak256(encodePacked(["string", "bytes32"], ["mock-settlement", nonce as `0x${string}`]));
   return { success: true, transaction: tx };
@@ -248,6 +283,14 @@ async function handleX402(req: IncomingMessage, res: ServerResponse, r: Resource
     log("402 (verify failed)", verify.reason);
     res.writeHead(402, { "content-type": "application/json" });
     res.end(JSON.stringify({ x402Version: 1, error: verify.reason }));
+    return;
+  }
+
+  if (r.path === "/x402/always-402") {
+    // 検証は通ったが受け付けない売り手。買い手が署名し直して投げ直さないことを確かめる。
+    log("402 (merchant refuses despite valid payment)", r.path);
+    res.writeHead(402, { "content-type": "application/json" });
+    res.end(JSON.stringify({ x402Version: 1, error: "merchant refuses this payment" }));
     return;
   }
 

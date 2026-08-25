@@ -9,16 +9,17 @@
   指示書本文が明示している範囲だけを書き、それ以外は「未取得」にしてある。
   記事 `na4b6acb98907` を参照できる環境で埋めること。
 
-## 6軸
+## 6軸（+ 二重支払い抑止を 4.5 として追加）
 
 | # | 軸 | 案1: Hermes mpp-agent × mpp.dev | 本案: AWS AgentCore payments |
 |---|---|---|---|
 | 1 | **鍵保管（層1 / 問題A）**<br>秘密鍵を誰が持ち、モデルからどう隠すか | 未取得（記事参照が必要）。指示書の記載は「同じ三層ガードレール」まで | **未実装（実行できていない）**。設計上は `EMBEDDED_CRYPTO_WALLET` を Coinbase CDP / Stripe Privy コネクタ配下に置き、鍵は AWS 側。ハーネスは `paymentInstrumentId` しか持たない。<br>本セッションの実測は代替バックエンド（プロセス内一時鍵）で、`proofSource: "local-signer"`。<br>ログへの鍵混入ゼロは実測（`npm run check:secrets` → 16ファイル200レコード走査で0件） |
-| 2 | **上限の強制点（層2 / 問題B）**<br>金額をどこで機械的に拘束するか | 未取得 | **実測 + 一次確認**。AgentCore の `SessionLimits.maxSpendAmount` は**セッション累計のみ**、通貨は `USD` 固定。1回あたり上限に対応するAPIは無い。<br>→ ハーネス側（`src/guard/limits.ts`）に per_call $0.05 / session $0.20 を持ち、累計は AgentCore にも同値を渡して二重化。<br>超過時に再送が発生しないことを実測（`artifacts/limit-exceeded`, `artifacts/session-cap-exceeded`） |
-| 3 | **人間承認（層3 / 問題C）**<br>どこに人間の判断が残るか | 未取得。指示書は「都度承認で判断の責任Cを残す方針」とする | **実測**。承認点は2つ（初回エンドポイント／上限超過）。自動承認は既定オフ。<br>承認ログに 誰が・いつ・いくら（`approval.decision`）。<br>否認したまま決済が起きた事例ゼロ（`artifacts/not-approved`, `artifacts/cli-approval-denied`） |
+| 2 | **上限の強制点（層2 / 問題B）**<br>金額をどこで機械的に拘束するか | 未取得 | **実測 + SDK実測**。AgentCore の `SessionLimits.maxSpendAmount` は**セッション累計のみ**、通貨は `USD` 固定。1回あたり上限に対応するAPIは GA 後の SDK 3.1117.0 にも無い。<br>→ ハーネス側（`src/guard/limits.ts`）に per_call $0.05 / session $0.20 を持ち、累計は AgentCore にも同値を渡して二重化。<br>**セッション累計に余裕があっても per_call だけで decline する**ことを分離して実測（`artifacts/per-call-only`: session_max $5.00・per_call $0.05 で `rule: "per_call_max"` / `enforced_by: "harness-only"`）。<br>超過時に署名も再送も発生しないことを実測（`process_payment_called: false`） |
+| 3 | **人間承認（層3 / 問題C）**<br>どこに人間の判断が残るか | 未取得。指示書は「都度承認で判断の責任Cを残す方針」とする | **実測**。承認点は2つ（初回エンドポイント／上限超過）。自動承認は既定オフ。<br>承認には**金額の天井**が付く: $0.01 を承認しても、同一オリジンの $0.03 は再度聞く（`artifacts/grant-scope-exceeded`）。<br>承認記録（誰が・いつ・有効範囲）は receipt にも入る。<br>否認したまま決済が起きた事例ゼロ。<br>**AgentCore 側に承認ゲートに相当する API は無い**（`userId` / `agentName` は observability 用ラベル）[SDK実測] |
 | 4 | **対応レール**<br>x402 / MPP をどう扱うか | 未取得（MPP 側の一周は記事にあるはず） | **一次確認済み**。`PaymentType` enum が `CRYPTO_X402` と `MPP` の両方を持つ。1回の `ProcessPayment` はどちらか片方。<br>MPP は 402 の `WWW-Authenticate` を verbatim で渡すだけでよい（パースは AgentCore 側）。x402 は payload を組み立てて渡す。<br>GA で `upto`（従量）スキームが追加されているが**未検証**（本作業は `exact` のみ） |
+| 4.5 | **二重支払い・再送の抑止**<br>同じ金額を二度払わない仕組み | 未取得 | **実測**。ProcessPayment は demand ごとに固定した `clientToken` で叩き（AgentCore の冪等性に載せる）、ハーネス側でも 1 回の `pay()` につき 1 回に制限。再送は既定 1 回まで。<br>再送が 402 で返されても**署名し直さない**（`artifacts/merchant-rejects`）。<br>売り手側の nonce 再利用拒否も実測（`npm run check:facilitator` の case 2） |
 | 5 | **1周の実測**<br>402 → pay → success をどこまで採れたか | 未取得。指示書は「testnet 実払いを一周した記録」とする | **公開エンドポイントに対しては未実施**。x402.org / mpp.dev とも egress 403（`artifacts/live-attempt`）。<br>AgentCore `ProcessPayment` も未実行（コントロールプレーンの資格情報が無く payment manager を作れない。`artifacts/agentcore-attempt`）。<br>**ローカル模擬売り手に対しては両レールとも一周を実測**（x402: `artifacts/x402-success`、MPP: `artifacts/mpp-success`）。署名検証は本物、オンチェーン決済はしていない |
-| 6 | **実マネー到達性と実費**<br>本番に持っていくとき何が要るか | 未取得 | **未確認（料金ページに到達不可）**。判明している必要条件: ①コントロールプレーンを叩ける AWS 資格情報 ②**Coinbase CDP または Stripe Privy のクレデンシャル**（AWS だけでは足りない）③ base-sepolia の testnet USDC。<br>本セッションの AWS 実費は **$0**（課金される API 呼び出しに到達していない）。<br>mainnet ガードは実測（`artifacts/mainnet-halt` で exit=2 停止） |
+| 6 | **実マネー到達性と実費**<br>本番に持っていくとき何が要るか | 未取得 | **料金は [指示書経由]（本セッション未検証）**: AgentCore payments 自体は AWS 追加課金なし。費用はウォレット提供元の**件数課金**（Coinbase CDP 約 $0.005/op、`ProcessPayment` 1 回 = 1 op）。公式試算例 270,000 op/月 ＝ 約 $1,351/月。<br>リージョン [指示書経由]: `us-east-1` / `us-west-2` / `eu-central-1` / `ap-southeast-2`。<br>必要条件: ①コントロールプレーンを叩ける AWS 資格情報 ②**Coinbase CDP または Stripe Privy のクレデンシャル**（AWS だけでは足りない）③ IAM サービスロール ④ base-sepolia の testnet USDC。<br>本セッションの AWS 実費は **$0**（課金される API 呼び出しに到達していない）。<br>mainnet ガードは実測（`artifacts/mainnet-halt` で exit=2 停止） |
 
 ## この比較から言えること・言えないこと
 
@@ -34,6 +35,15 @@
   **判断の責任は、どちらの実装でも自分で残すしかない。**
 - AgentCore を使うには Coinbase か Stripe のクレデンシャルが要る。
   「AWS に寄せると依存が減る」わけではなく、**依存先が1つ増える**。
+
+**GA を踏まえて足せること**
+
+- **料金の形が件数課金**（取引額の％ではない）なら、少額多頻度ほど手数料率が悪化する。
+  per-call 上限は「使いすぎ防止」だけでなく「1 件あたりの原価割れ防止」の意味も持つ。[指示書経由・未検証]
+- **一次情報どうしが食い違う場面がある**。GA 後に出た SDK の `PaymentStatus` は
+  `PROOF_GENERATED` 単一のままで、GA docs の `PENDING/SUCCESS/FAILED` と合わない。
+  こういうときは片方に寄せず、**両方を受けて未知は停止側に倒す**のが安全。
+  実装は `src/backends/paymentStatus.ts`。
 
 **言えないこと**
 

@@ -70,21 +70,64 @@ provisioning ができない。paymentManagerArn が無ければ `ProcessPayment
 
 | # | 必要なもの | 用途 |
 |---|---|---|
-| 1 | `x402.org` `mpp.dev`（および実際に使う売り手ホスト）への egress 許可 | T4/T5 の相手 |
-| 2 | `docs.aws.amazon.com` への egress 許可 | T1 の料金・リージョンの一次確認 |
-| 3 | AgentCore コントロールプレーンを叩ける AWS 資格情報 | payment manager / connector / instrument の作成 |
-| 4 | Coinbase CDP または Stripe Privy のクレデンシャル | `CreatePaymentCredentialProvider`（AWS だけでは足りない） |
-| 5 | base-sepolia の testnet USDC | 実際の支払い原資 |
+| 1 | 売り手ホストへの egress 許可（`x402.org` / `mpp.dev` / Bazaar 経由の各エンドポイント） | T4/T5 の相手。**使うものだけ**足す。ワイルドカードで広く開けない |
+| 2 | `bedrock-agentcore.<region>.amazonaws.com` と `bedrock-agentcore-control.<region>.amazonaws.com` への egress 許可 | データ／コントロール両プレーン |
+| 3 | `sts.amazonaws.com` / `secretsmanager.<region>.amazonaws.com` への egress 許可 | 資格情報の検証と credential provider の裏側 |
+| 4 | `docs.aws.amazon.com` への egress 許可 | 料金・リージョン・status enum の一次確認（下の食い違いを決着させる） |
+| 5 | AgentCore コントロールプレーンを叩ける AWS 資格情報 | manager / connector / credential provider の作成 |
+| 6 | IAM サービスロール（信頼するのは `bedrock-agentcore.amazonaws.com`） | `CreatePaymentManager` の `roleArn` |
+| 7 | Coinbase CDP または Stripe Privy のクレデンシャル | `CreatePaymentCredentialProvider`（AWS だけでは足りない） |
+| 8 | base-sepolia の testnet USDC | 実際の支払い原資 |
+| 9 | Base Sepolia RPC（例 `sepolia.base.org`）への egress 許可 | 残高・決済の確認（任意） |
 
-1〜5 が揃えば、コードは以下の 1 コマンドで公開エンドポイントに向く。
-ハーネス側の変更は要らない。
+> 実行環境ごとに allowlist が違う。実測:
+> - 2026-08-22 / 2026-08-25 の環境: `bedrock-agentcore*` には届く（認証エラーまで進む）が
+>   `x402.org` / `mpp.dev` / `docs.aws.amazon.com` / `note.com` は 403。
+> **AWS 結線と testnet 到達の両方が同時に開いた環境**でないと一周できない。
+
+## 揃ったら走らせる手順（ハーネス無改修）
 
 ```bash
-AGENTCORE_PAYMENT_MANAGER_ARN=arn:aws:bedrock-agentcore:us-east-1:<acct>:payment-manager/<id> \
-AGENTCORE_PAYMENT_INSTRUMENT_ID=<instrument-id> \
+# 0) 前提: 上の 1〜8 が揃っている。リージョンは egress / IAM / ARN で揃える
+export AWS_REGION=us-west-2
+export AGENTCORE_ROLE_ARN=arn:aws:iam::<acct>:role/<agentcore-payments-role>
+export PAYMENT_USER_EMAIL=you@example.com
+export CDP_API_KEY_ID=... CDP_API_KEY_SECRET=... CDP_WALLET_SECRET=...
+#   （Stripe Privy なら PRIVY_APP_ID / PRIVY_APP_SECRET /
+#     PRIVY_AUTHORIZATION_ID / PRIVY_AUTHORIZATION_PRIVATE_KEY）
+
+# 1) プロビジョニング（credential provider → manager → connector → instrument）
+#    人手が 2 回入る: コネクタの OAuth 同意と、instrument の入金
+npm run provision
+#    先に手順だけ見るなら: npm run provision -- --dry-run
+
+# 2) 出力（artifacts/provision-output.json）の値を env に入れてライブ一周
+export AGENTCORE_PAYMENT_MANAGER_ARN=arn:aws:bedrock-agentcore:us-west-2:<acct>:payment-manager/<id>
+export AGENTCORE_PAYMENT_INSTRUMENT_ID=<instrument-id>
+export AGENTCORE_PAYMENT_CONNECTOR_ID=<connector-id>
 npm run harness -- --label=x402-live --backend=agentcore --allow-live \
-  --endpoint=<公開エンドポイント> --rail=x402 --approve=prompt
+  --endpoint=<Bazaar か公開売り手の URL> --rail=x402 --approve=prompt
+
+# 3) 回帰確認（mock は常に緑を維持）
+npm run run:all && npm run check
 ```
 
-`config/endpoints.testnet.json` の live 項目は `reachability: "unverified"` のままにしてある。
+`npm run provision` はクレデンシャルを標準出力にも `artifacts/provision-output.json` にも書かない。
+出るのは ARN / ID / status だけで、`npm run check:secrets` の走査対象にも入っている。
+
+## ライブ 1 回目で決着させること（[要ライブ確認]）
+
+推測で埋めず、実際に返ってきた値で更新する。
+
+| # | 確認すること | なぜ決着が要るか | 更新先 |
+|---|---|---|---|
+| 1 | `ProcessPayment` が返す status の実値 | SDK は `PROOF_GENERATED` 単一、GA docs は `PENDING/SUCCESS/FAILED`。**一次情報どうしが食い違っている** | `docs/T1-agentcore-findings.md` §3、`src/backends/paymentStatus.ts` |
+| 2 | `SUCCESS`（または `PROOF_GENERATED`）の時点でオンチェーン確定しているか | 買い手再送モデルを維持してよいかが決まる | 同上。確定するまで receipt の `settlementConfirmedBy` は売り手の受領ヘッダ基準のまま |
+| 3 | MPP の `paymentType` enum 値 | SDK は `MPP`、GA quick start は `CRYPTO_X402` のみ記載 | `src/backends/agentcore.ts` |
+| 4 | ProcessPayment payload の `network` 表記（CAIP-2 か slug か） | `AGENTCORE_X402_PAYLOAD_MODE` の既定をどちらにするか。ValidationException が出たら `requirements` に倒す | `src/backends/agentcore.ts` の `buildX402Payload()` |
+| 5 | instrument / session の status 実値 | SDK と docs で表記が違う（`INITIATED` vs `PENDING` など） | `scripts/provision-agentcore.mts` |
+| 6 | 実際に到達できた売り手ホスト | | `config/endpoints.testnet.json` の該当項目を `reachability: "ok"` に |
+| 7 | receipt に `proofSource: "agentcore"` / `merchant: "live"` が入るか | mock-local と取り違えないための最終確認 | 採取ログ |
+
+`config/endpoints.testnet.json` の live 項目は到達確認まで `reachability: "unverified"` を維持。
 到達確認をしていないものを `ok` に書き換えないこと。

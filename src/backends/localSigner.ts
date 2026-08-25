@@ -52,9 +52,10 @@ export class LocalSignerBackend implements PaymentBackend {
     return this.sessionId;
   }
 
-  async processPayment(demand: PaymentDemand): Promise<Proof> {
+  async processPayment(demand: PaymentDemand, opts: { clientToken: string }): Promise<Proof> {
     const account = this.#account;
     if (!account || !this.sessionId) throw new Error("openSession を先に呼ぶこと");
+    void opts; // local-signer に冪等性の概念は無い。二重署名はハーネス側で止める。
 
     if (demand.raw.kind === "x402") {
       assertTestnetNetwork(demand.network);
@@ -124,6 +125,7 @@ export class LocalSignerBackend implements PaymentBackend {
         },
         processPaymentId: `local-${randomUUID()}`,
         status: "PROOF_GENERATED",
+        outcome: "proof_only",
       };
     }
 
@@ -214,6 +216,7 @@ export class LocalSignerBackend implements PaymentBackend {
       paymentCredential: `Payment ${Buffer.from(JSON.stringify(credential), "utf8").toString("base64url")}`,
       processPaymentId: `local-${randomUUID()}`,
       status: "PROOF_GENERATED",
+      outcome: "proof_only",
     };
   }
 

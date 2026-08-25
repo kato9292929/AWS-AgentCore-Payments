@@ -55,10 +55,22 @@ export interface MppRaw {
   request: Record<string, unknown>;
 }
 
+export type LimitRule = "per_call_max" | "session_max" | "invalid_amount";
+
 export type Decision =
   | { verdict: "within" }
-  | { verdict: "limit_exceeded"; reason: string; detail: Record<string, string> }
-  | { verdict: "needs_approval"; reason: "first_time_endpoint" | "over_per_call_limit"; detail: Record<string, string> };
+  | {
+      verdict: "limit_exceeded";
+      reason: string;
+      /** どの規則で落ちたか。per_call と session を取り違えないために必ず持つ。 */
+      rule: LimitRule;
+      detail: Record<string, string>;
+    }
+  | {
+      verdict: "needs_approval";
+      reason: "first_time_endpoint" | "over_granted_amount";
+      detail: Record<string, string>;
+    };
 
 /** pay がモデルに返す形。receipt 概要と status のみ。 */
 export type PayResult =
@@ -92,8 +104,23 @@ export interface Receipt {
   timestamp: string;
   /** proof を生成したのが誰か。agentcore か local-signer か。 */
   proofSource: "agentcore" | "local-signer";
+  /** ProcessPayment が返した status を verbatim で残す。 */
+  paymentStatus: string;
+  /**
+   * オンチェーン確定を名乗ってよいか。
+   * 根拠は売り手が返した receipt ヘッダ（X-PAYMENT-RESPONSE / Payment-Receipt）のみ。
+   * ProcessPayment の status だけでは名乗らない（src/backends/paymentStatus.ts）。
+   */
+  settlementConfirmedBy: "merchant-receipt" | "none";
   /** 実マネーでないことを機械可読で残す。 */
   testnet: true;
   /** 相手が本物の公開エンドポイントか、ローカルの模擬売り手か。 */
   merchant: "live" | "mock-local";
+  /** 誰の承認でこの支払いが成立したか（層3の記録を receipt に残す）。 */
+  approval: {
+    approver: string;
+    at: string;
+    /** 承認の有効範囲。オリジンと1回あたりの上限。 */
+    scope: string;
+  };
 }

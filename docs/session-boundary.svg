@@ -36,7 +36,7 @@
   <text x="364" y="208" font-size="12" fill="#334155">ディレクトリ + 402プローブ → 候補一覧（endpoint / price / rail）</text>
 
   <!-- pay wrapper -->
-  <rect x="346" y="256" width="444" height="440" rx="9" fill="#ffffff" stroke="#334155" stroke-width="1.6"/>
+  <rect x="346" y="256" width="444" height="470" rx="9" fill="#ffffff" stroke="#334155" stroke-width="1.6"/>
   <text x="364" y="282" font-size="14" font-weight="700" fill="#0f172a">pay ／ 内側に三層ラッパー（モデルは迂回できない）</text>
 
   <!-- step: bare request -->
@@ -53,8 +53,8 @@
   <!-- layer3 -->
   <rect x="364" y="452" width="408" height="80" rx="7" fill="#fefce8" stroke="#ca8a04" stroke-width="1.4"/>
   <text x="378" y="476" font-size="13" font-weight="700" fill="#854d0e">層3 人間判断（問題C：判断の責任）</text>
-  <text x="378" y="497" font-size="12" fill="#713f12">初回エンドポイント → needs_approval で停止し、人間の y/N を待つ</text>
-  <text x="378" y="516" font-size="12" fill="#713f12">自動承認は testnet でも既定オフ（AUTO_APPROVE=false）</text>
+  <text x="378" y="497" font-size="12" fill="#713f12">初回エンドポイント／承認額を超える請求 → needs_approval で停止</text>
+  <text x="378" y="516" font-size="12" fill="#713f12">承認には金額の天井が付く。自動承認は既定オフ</text>
 
   <!-- layer1 -->
   <rect x="364" y="546" width="408" height="80" rx="7" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.4"/>
@@ -62,9 +62,14 @@
   <text x="378" y="591" font-size="12" fill="#1e3a8a">⑥ AgentCore ProcessPayment（または一時鍵）が署名 → 決済証明</text>
   <text x="378" y="610" font-size="12" fill="#1e3a8a">鍵はツール引数・戻り値・ログのどこにも出ない</text>
 
+  <!-- duplicate / retry guard -->
+  <rect x="364" y="632" width="408" height="42" rx="7" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.4"/>
+  <text x="378" y="651" font-size="12.5" font-weight="700" fill="#5b21b6">二重支払い・再送の抑止</text>
+  <text x="378" y="668" font-size="11.5" fill="#4c1d95">clientToken を demand ごとに固定／署名は1回／再送は既定1回まで</text>
+
   <!-- retry -->
-  <rect x="364" y="640" width="408" height="40" rx="7" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.4"/>
-  <text x="378" y="665" font-size="12.5" fill="#14532d">⑦ 証明をヘッダに載せて再送 → 200 / success + receipt</text>
+  <rect x="364" y="682" width="408" height="40" rx="7" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.4"/>
+  <text x="378" y="707" font-size="12.5" fill="#14532d">⑦ 証明をヘッダに載せて再送 → 200 / success + receipt</text>
 
   <!-- seller -->
   <rect x="856" y="296" width="284" height="140" rx="10" fill="#ffffff" stroke="#334155" stroke-width="1.4"/>
@@ -102,8 +107,8 @@
   <text x="780" y="300" font-size="11" fill="#334155">GET（支払いヘッダ無し）</text>
   <text x="780" y="374" font-size="11" fill="#b91c1c">402 + 支払い要求</text>
 
-  <path d="M772 656 L856 620" stroke="#15803d" stroke-width="1.8" fill="none" marker-end="url(#ag)"/>
-  <text x="782" y="676" font-size="11" fill="#15803d">再送 → 200 + receipt</text>
+  <path d="M772 698 L856 626" stroke="#15803d" stroke-width="1.8" fill="none" marker-end="url(#ag)"/>
+  <text x="782" y="716" font-size="11" fill="#15803d">再送 → 200 + receipt</text>
 
   <!-- layer3 -> human -->
   <path d="M364 492 L280 500" stroke="#ca8a04" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
@@ -125,7 +130,7 @@
   <text x="60" y="626" font-size="13" font-weight="700" fill="#0f172a">人間承認が残る2点</text>
   <circle cx="72" cy="650" r="11" fill="#ca8a04"/>
   <text x="72" y="655" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">1</text>
-  <text x="92" y="648" font-size="12" fill="#334155">初回エンドポイントへの支払い</text>
+  <text x="92" y="648" font-size="12" fill="#334155">初回／承認額を超える支払い</text>
   <text x="92" y="665" font-size="11.5" fill="#64748b">→ 承認が取れるまで決済しない</text>
   <circle cx="72" cy="694" r="11" fill="#b91c1c"/>
   <text x="72" y="699" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">2</text>

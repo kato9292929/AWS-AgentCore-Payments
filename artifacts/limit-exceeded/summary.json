@@ -25,7 +25,8 @@
         "amount_usd": "0.500000",
         "per_call_max_usd": "0.050000",
         "session_max_usd": "0.200000",
-        "session_spent_usd": "0.000000"
+        "session_spent_usd": "0.000000",
+        "rule": "per_call_max"
       }
     }
   ],
@@ -34,5 +35,12 @@
     "remaining_usd": "0.200000",
     "per_call_max_usd": "0.050000",
     "session_max_usd": "0.200000"
+  },
+  "approval_grants": [],
+  "duplicate_guard": {
+    "max_process_payment_attempts": 1,
+    "max_resend_attempts": 1,
+    "tracked_demands": 0,
+    "settled_fingerprints": 0
   }
 }

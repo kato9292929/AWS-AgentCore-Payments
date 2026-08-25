@@ -20,6 +20,11 @@ const SECRET_KEY_HINTS = [
   "authorizationsignature",
   "apikey",
   "api_key",
+  "apikeysecret",
+  "walletsecret",
+  "appsecret",
+  "clientsecret",
+  "authorizationprivatekey",
   "aws_secret_access_key",
 ];
 

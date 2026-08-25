@@ -8,6 +8,8 @@ import { randomUUID } from "node:crypto";
 import type { HarnessConfig } from "../config.js";
 import type { Recorder } from "../log/recorder.js";
 import type { PaymentDemand } from "../types.js";
+import { toCaip2 } from "../rails/caip2.js";
+import { classifyPaymentStatus, mayRetryWithProof } from "./paymentStatus.js";
 import type { PaymentBackend, Proof } from "./types.js";
 
 /**
@@ -18,10 +20,15 @@ import type { PaymentBackend, Proof } from "./types.js";
  *      expiryTimeInMinutes(15-480), userId?, agentName?, clientToken? }
  *  - ProcessPaymentRequest{ paymentManagerArn, paymentSessionId, paymentInstrumentId,
  *      paymentType: "CRYPTO_X402"|"MPP", paymentInput: {cryptoX402:{version,payload}} | {mpp:{version,wwwAuthenticateHeaders,buyerPaysGasFees?}} }
- *  - ProcessPaymentResponse{ status: "PROOF_GENERATED", paymentOutput: {cryptoX402:{version,payload}} | {mpp:{version,selectedPaymentId,paymentCredential}} }
+ *  - ProcessPaymentResponse{ status, paymentOutput: {cryptoX402:{version,payload}} | {mpp:{version,selectedPaymentId,paymentCredential}} }
  *
- * 注意: PaymentStatus enum は PROOF_GENERATED のみ。AgentCore は「証明」までを返し、
- * オンチェーン決済は売り手側 facilitator が行う。買い手ハーネスは証明を再送に載せる。
+ * status の扱いは src/backends/paymentStatus.ts を読むこと。
+ * SDK 3.1117.0 の PaymentStatus enum は PROOF_GENERATED のみだが、
+ * GA の quick start は PENDING/SUCCESS/FAILED としている。両者が食い違っているので
+ * status は不透明な文字列として扱い、分類だけを classifyPaymentStatus() に寄せてある。
+ * [要ライブ確認] 実際に返る値と、SUCCESS 時点でオンチェーン確定しているか。
+ *
+ * 買い手再送モデル（402 の再送は買い手が行う）は変えていない。x402 の仕様がそうだから。
  */
 export class AgentCoreBackend implements PaymentBackend {
   readonly kind = "agentcore" as const;
@@ -66,7 +73,7 @@ export class AgentCoreBackend implements PaymentBackend {
     return id;
   }
 
-  async processPayment(demand: PaymentDemand): Promise<Proof> {
+  async processPayment(demand: PaymentDemand, opts: { clientToken: string }): Promise<Proof> {
     if (!this.sessionId) throw new Error("openSession を先に呼ぶこと");
 
     const input =
@@ -74,11 +81,14 @@ export class AgentCoreBackend implements PaymentBackend {
         ? {
             cryptoX402: {
               version: String(demand.raw.x402Version),
-              payload: demand.raw.requirements as never,
+              payload: buildX402Payload(demand) as never,
             },
           }
         : {
             mpp: {
+              // SDK 3.1117.0 の PaymentType enum は CRYPTO_X402 と MPP の 2 値。
+              // GA quick start に明記があるのは CRYPTO_X402 のみなので、
+              // MPP 側の enum 値は [要ライブ確認]。型が通る限りは "MPP" を使う。
               version: "1",
               // 402 の WWW-Authenticate 値を verbatim で渡す（SDK ドキュメント記載どおり）
               wwwAuthenticateHeaders: [demand.raw.wwwAuthenticate],
@@ -104,15 +114,26 @@ export class AgentCoreBackend implements PaymentBackend {
         agentName: this.agentName,
         paymentType: demand.rail === "x402" ? "CRYPTO_X402" : "MPP",
         paymentInput: input,
-        clientToken: randomUUID(),
+        // demand ごとに固定。同じ請求で 2 回叩いても AgentCore 側で冪等になる。
+        clientToken: opts.clientToken,
       }),
     );
 
+    const outcome = classifyPaymentStatus(res.status);
     this.rec.event("agentcore.process_payment.response", {
       processPaymentId: res.processPaymentId,
+      // status は verbatim で残す。分類はこちらの解釈でしかない。
       status: res.status,
+      outcome,
       paymentType: res.paymentType,
+      ...(outcome === "unknown"
+        ? { note: "未知の status。決済に進まない（[要ライブ確認]）" }
+        : {}),
     });
+
+    if (!mayRetryWithProof(outcome)) {
+      throw new Error(`ProcessPayment の status が ${res.status ?? "(なし)"}（outcome=${outcome}）のため中止`);
+    }
 
     if (demand.rail === "x402") {
       const out = res.paymentOutput?.cryptoX402;
@@ -123,6 +144,7 @@ export class AgentCoreBackend implements PaymentBackend {
         payload: out.payload,
         processPaymentId: res.processPaymentId ?? "",
         status: res.status ?? "",
+        outcome,
       };
     }
     const out = res.paymentOutput?.mpp;
@@ -134,6 +156,7 @@ export class AgentCoreBackend implements PaymentBackend {
       paymentCredential: out.paymentCredential ?? "",
       processPaymentId: res.processPaymentId ?? "",
       status: res.status ?? "",
+      outcome,
     };
   }
 
@@ -150,4 +173,33 @@ export class AgentCoreBackend implements PaymentBackend {
     this.rec.event("agentcore.session.deleted", { paymentSessionId: this.sessionId });
     this.sessionId = undefined;
   }
+}
+
+/**
+ * x402 の ProcessPayment payload を組み立てる。
+ *
+ * 二つの形が候補にある。[要ライブ確認]
+ *  - "quickstart": GA quick start が示す形。network は CAIP-2（eip155:84532）。
+ *  - "requirements": 402 の accepts[] のエントリを verbatim で渡す（network は slug）。
+ *
+ * 既定は quickstart。AGENTCORE_X402_PAYLOAD_MODE=requirements で切り替えられる。
+ * ライブ 1 回目で ValidationException が出たらもう一方に倒す。
+ */
+export function buildX402Payload(demand: PaymentDemand): Record<string, unknown> {
+  if (demand.raw.kind !== "x402") throw new Error("x402 の demand ではない");
+  const req = demand.raw.requirements as Record<string, unknown>;
+  const mode = process.env["AGENTCORE_X402_PAYLOAD_MODE"] ?? "quickstart";
+  if (mode === "requirements") return req;
+
+  return {
+    scheme: demand.scheme,
+    network: toCaip2(demand.network),
+    // 最小単位の文字列。402 の maxAmountRequired をそのまま使う。
+    amount: demand.amountAtomic.toString(),
+    asset: demand.asset,
+    payTo: demand.payTo,
+    ...(req["maxTimeoutSeconds"] !== undefined ? { maxTimeoutSeconds: req["maxTimeoutSeconds"] } : {}),
+    ...(req["extra"] !== undefined ? { extra: req["extra"] } : {}),
+    ...(req["resource"] !== undefined ? { resource: req["resource"] } : {}),
+  };
 }

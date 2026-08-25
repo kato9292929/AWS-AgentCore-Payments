@@ -9,7 +9,7 @@ export interface ApprovalRequest {
   asset: string;
   network: string;
   payTo: string;
-  reason: "first_time_endpoint" | "over_per_call_limit";
+  reason: "first_time_endpoint" | "over_granted_amount";
 }
 
 export interface ApprovalRecord extends ApprovalRequest {
@@ -39,7 +39,7 @@ export class CliApprover implements Approver {
         [
           "",
           "──────── 人間承認が必要 ────────",
-          `理由      : ${req.reason}`,
+          `理由      : ${reasonLabel(req.reason)}`,
           `エンドポイント: ${req.endpoint}`,
           `レール    : ${req.rail}`,
           `金額      : ${req.amountUsd} USD (${req.asset})`,
@@ -75,15 +75,22 @@ export class CliApprover implements Approver {
  * 「承認されていないのに決済が起きた」を構造的に作れないようにする。
  */
 export class PresetApprover implements Approver {
+  private asked = 0;
+
   constructor(
     private readonly rec: Recorder,
     private readonly decisions: Record<string, boolean>,
     private readonly approver: string,
+    /** true なら 1 回目だけ承認し、2 回目以降は否認する（承認範囲の検証用）。 */
+    private readonly onlyFirst = false,
   ) {}
 
   async ask(req: ApprovalRequest): Promise<ApprovalRecord> {
+    this.asked += 1;
     const key = `${req.endpoint}`;
-    const approved = this.decisions[key] ?? this.decisions["*"] ?? false;
+    const approved = this.onlyFirst
+      ? this.asked === 1
+      : (this.decisions[key] ?? this.decisions["*"] ?? false);
     const r: ApprovalRecord = {
       ...req,
       approved,
@@ -94,6 +101,12 @@ export class PresetApprover implements Approver {
     this.rec.event("approval.decision", { ...r });
     return r;
   }
+}
+
+function reasonLabel(reason: ApprovalRequest["reason"]): string {
+  return reason === "first_time_endpoint"
+    ? "初回エンドポイントへの支払い"
+    : "既に承認した金額を超える支払い";
 }
 
 export function approverIdentity(): string {

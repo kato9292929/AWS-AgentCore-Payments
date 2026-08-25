@@ -225,3 +225,112 @@ Coinbase または Stripe 側のクレデンシャルが要る（`CreatePaymentC
 | `upto` スキームの挙動 | 未検証 | `exact` のみ実装 |
 | Coinbase Bazar MCP（GA で追加の x402 エンドポイント集） | 未確認 | discover の候補源として有力だが到達不可 |
 | コネクタ側（Coinbase/Stripe）の課金 | 未確認 | — |
+
+---
+
+# 追記（2026-08-25）: GA 差分と、一次情報どうしの食い違い
+
+## 0. 出典の区分
+
+本セッションでも `docs.aws.amazon.com` は egress 許可外（403）のまま。
+したがって以下では出典を 2 種類に分けて書く。**混ぜない。**
+
+- **[SDK実測]** — `@aws-sdk/client-bedrock-agentcore@3.1117.0` の生成モデルを
+  このセッションで実際に読んだ。`npm run check:ga` が毎回読み直して検証する。
+- **[指示書経由]** — 開発指示書（2026-08-25）が AWS 公式 docs から引いた値。
+  **本セッションでは裏を取れていない。** 断定形で記事に書かない。
+
+## 1. GA のタイムライン [指示書経由]
+
+- preview: 2026-04
+- GA: 2026-08-18（AWS ML Blog「Amazon Bedrock AgentCore payments is now generally available」）
+
+## 2. 対応リージョン・料金 [指示書経由・本セッション未検証]
+
+- リージョン: `us-east-1` / `us-west-2` / `eu-central-1` / `ap-southeast-2`。GA 公式サンプルは `us-west-2`。
+- **AgentCore payments 自体は AWS 追加課金なし。** 費用はウォレット提供元のオペレーション課金。
+  - Coinbase CDP: `CreateInstrument` 1 回 = 1 op、`ProcessPayment` 1 回 = 1 op、約 **$0.005/op**
+  - Stripe Privy: `CreateInstrument` は無料、`ProcessPayment` 1 回 = 1 op
+  - 公式試算例: 270,000 `ProcessPayment`/月 ＝ 約 **$1,351/月**
+
+料金の形が「取引額の％ではなく件数課金」である点は、per-call 上限の議論に効く。
+1 件あたりの原価が固定なので、**少額多頻度ほど手数料率が悪化する**。
+（$0.001 の支払いに $0.005 の op 費用がかかる、という向きの話になる）
+
+## 3. status enum: SDK と docs が食い違っている ← 重要
+
+| | ProcessPayment 応答 status |
+|---|---|
+| [SDK実測] `PaymentStatus` enum (3.1117.0) | `PROOF_GENERATED` **のみ** |
+| [指示書経由] GA quick start | `PENDING` / `SUCCESS` / `FAILED` |
+
+GA（2026-08-18）より後に発行された SDK でも enum は `PROOF_GENERATED` 単一のまま。
+`npm run check:ga` の出力に実測値が毎回残る。
+
+**どちらが現行かを本セッションでは確定できない。** そこで実装は次のようにした。
+
+- status は**不透明な文字列として verbatim にログと receipt へ残す**
+- 「決済を続けてよいか」の判定だけを `src/backends/paymentStatus.ts` の
+  `classifyPaymentStatus()` に寄せ、**両方の enum 系列を受け付ける**
+- 未知の値は `unknown` に落ちて**決済に進まない**（deny by default）
+- 買い手再送モデル（402 への再送は買い手が行う）は**変えていない**。x402 の仕様がそうだから
+
+`SUCCESS` が返る時点でオンチェーン確定しているのかは [要ライブ確認]。
+確定するまで、receipt の `settlementConfirmedBy` は
+**売り手が受領ヘッダ（`X-PAYMENT-RESPONSE` / `Payment-Receipt`）を返したときだけ**
+`"merchant-receipt"` になり、ProcessPayment の status だけでは `"none"` のまま。
+
+## 4. その他 enum の食い違い（同じ扱いにした）
+
+| リソース | [SDK実測] 3.1117.0 | [指示書経由] GA docs |
+|---|---|---|
+| PaymentInstrument | `INITIATED` / `ACTIVE` / `BLOCKED` / `FAILED` / `DELETED` | `PENDING` / `ACTIVE` / `INACTIVE` |
+| PaymentSession | `ACTIVE` / `EXPIRED` / `DELETED` | `ACTIVE` / `EXPIRED` / `CLOSED` |
+| PaymentManager | `CREATING` / `READY` / `CREATE_FAILED` / `UPDATING` / `UPDATE_FAILED` / `DELETING` / `DELETE_FAILED` | 同左 |
+
+`PaymentManager` だけは一致している。instrument と session は表記が違う。
+`scripts/provision-agentcore.mts` は **`ACTIVE` を待ち、`FAILED`/`BLOCKED` で止まる**
+書き方にしてあるので、どちらの enum でも動く。
+
+セッションの消費額も食い違う: [SDK実測] は `PaymentSession.availableLimits.availableSpendAmount`
+（**残額**）で、[指示書経由] は `spentAmount`（**使用額**）。実装は残額側を使っている。
+
+## 5. コネクタの status には OAuth 待ちがある [SDK実測]
+
+```ts
+export declare const PaymentConnectorStatus: {
+  CREATING, PROVISIONING, READY, UPDATING, DELETING,
+  PENDING_AUTHENTICATION,        // ← authorizationUrl を人間が開く待ち
+  AUTHENTICATION_FAILED, AUTHENTICATION_EXPIRED,
+  AWS_MARKETPLACE_SUBSCRIPTION_REQUIRED,
+  CREATE_FAILED, UPDATE_FAILED, DELETE_FAILED,
+};
+```
+
+`GetPaymentConnectorResponse.authorizationUrl` は
+「`PENDING_AUTHENTICATION` のときだけ入る」と docstring にある。
+これが Quick Create（OAuth 同意）の導線。**プロビジョニングには人手が 2 回入る**
+（コネクタの OAuth 同意と、instrument の入金）。
+
+`AWS_MARKETPLACE_SUBSCRIPTION_REQUIRED` があるのは示唆的で、
+コネクタによっては AWS Marketplace のサブスクリプションが要る場面がある。[要ライブ確認]
+
+## 6. プロビジョニングの実形 [SDK実測]
+
+指示書パート3の 6 段は正しいが、パラメータ名が一部違う。実装は SDK の型に合わせた。
+
+| 指示書の書き方 | [SDK実測] の実際 |
+|---|---|
+| `coinbaseCdpConfig{...}` | `providerConfigurationInput: { coinbaseCdpConfiguration: {...} }`（union） |
+| connector に `credentialProviderArn` | `credentialProviderConfigurations: [{ coinbaseCDP: { credentialProviderArn } }]`（配列＋union） |
+| `CreatePaymentConnector` に `paymentManagerArn` | `paymentManagerId`（ARN ではなく ID） |
+
+Stripe Privy 側は `appId` / `appSecret` / `authorizationId` / `authorizationPrivateKey` の
+4 点で、指示書の記載と一致した。
+
+## 7. 変わっていないこと（GA 後も）
+
+- **1 回あたりの支払い上限に対応する API は無い。** `SessionLimits.maxSpendAmount` は
+  セッション累計のみ、通貨は `USD` 固定。[SDK実測]
+- **人間承認に対応する概念は API に無い。** `userId` / `agentName` は observability 用のラベル。
+- **買い手ウォレットは Coinbase CDP か Stripe Privy のコネクタ配下。** AWS だけでは足りない。

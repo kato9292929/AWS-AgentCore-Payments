@@ -1,12 +1,15 @@
+import { randomUUID } from "node:crypto";
 import type { PaymentBackend } from "../backends/types.js";
 import { atomicToUsd, type HarnessConfig } from "../config.js";
-import type { Approver } from "../guard/approval.js";
+import type { ApprovalRecord, Approver } from "../guard/approval.js";
+import { ApprovalLedger, type Grant } from "../guard/approvalLedger.js";
+import { DemandLedger } from "../guard/demandLedger.js";
 import { SpendLimiter } from "../guard/limits.js";
 import { MainnetDetected } from "../guard/network.js";
 import type { Recorder } from "../log/recorder.js";
 import * as mpp from "../rails/mpp.js";
 import * as x402 from "../rails/x402.js";
-import type { PayResult, Rail } from "../types.js";
+import type { PayResult, Rail, Receipt } from "../types.js";
 
 export interface PayDeps {
   cfg: HarnessConfig;
@@ -14,6 +17,8 @@ export interface PayDeps {
   backend: PaymentBackend;
   limiter: SpendLimiter;
   approver: Approver;
+  grants: ApprovalLedger;
+  demands: DemandLedger;
   /** ログに live / mock-local を残すための判定。 */
   merchantKind: (endpoint: string) => "live" | "mock-local";
 }
@@ -27,14 +32,21 @@ export interface PayDeps {
  *
  * モデルはこの関数の内側にある上限・承認・鍵に触れない。
  * 引数は endpoint と request だけで、上限値も鍵も渡せない。
+ *
+ * 通る順番（この順番自体がガードレール）:
+ *   402 を受ける → 層2で金額を拘束 → 層3で承認を取る → 二重支払い/再送回数を見る
+ *   → 層1（鍵）で署名 → 再送 → receipt
  */
 export async function pay(
   deps: PayDeps,
   endpoint: string,
   request: { rail?: Rail; method?: string } = {},
 ): Promise<PayResult> {
-  const { cfg, rec, backend, limiter, approver } = deps;
-  rec.event("tool.pay.call", { endpoint, request });
+  const { cfg, rec, backend, limiter, approver, grants, demands } = deps;
+  // pay() 1 回ごとの識別子。同じ商品をあとでもう一度買うのは正当なので、
+  // 二重支払い判定はこの呼び出しの内側に閉じる。
+  const payCallId = randomUUID();
+  rec.event("tool.pay.call", { endpoint, request, payCallId });
 
   try {
     // ---- 4. 素のリクエストを投げて 402 と支払い要求を受ける ----
@@ -51,6 +63,8 @@ export async function pay(
 
     const parsed = rail === "x402" ? x402.parse402(bare) : mpp.parse402(bare);
     const demand = parsed.demand;
+    const fingerprint = DemandLedger.fingerprint(endpoint, demand);
+    const ledgerKey = DemandLedger.key(payCallId, fingerprint);
 
     rec.event("pay.demand", {
       endpoint,
@@ -61,16 +75,24 @@ export async function pay(
       amount_usd: atomicToUsd(demand.amountAtomic),
       asset: demand.asset,
       payTo: demand.payTo,
+      fingerprint,
     });
 
-    // ---- 5. 上限ラッパー（層2）。ここを通らずに決済へ進む経路は無い ----
-    const decision = limiter.evaluate(endpoint, demand.amountAtomic);
+    // ---- 5a. 層2: 金額の拘束。ここを通らずに決済へ進む経路は無い ----
+    const decision = limiter.evaluate(demand.amountAtomic);
     rec.event("guard.limit.decision", {
       endpoint,
       verdict: decision.verdict,
       ...("reason" in decision ? { reason: decision.reason } : {}),
+      ...("rule" in decision ? { rule: decision.rule } : {}),
       ...("detail" in decision ? decision.detail : {}),
       ...limiter.snapshot(),
+      // AgentCore の SessionLimits はセッション累計しか持たない。
+      // per_call_max で落ちた場合、それはハーネス側にしか無い拘束である。
+      enforced_by:
+        "rule" in decision && decision.rule === "per_call_max"
+          ? "harness-only (AgentCore に該当 API 無し)"
+          : "harness + AgentCore SessionLimits",
     });
 
     if (decision.verdict === "limit_exceeded") {
@@ -82,66 +104,99 @@ export async function pay(
         asked_human: false,
         approved: false,
         payment_attempted: false,
-        note: "per_call_max / session_max を超えたため decline。再送は発生しない。",
+        rule: decision.rule,
+        note: "上限を超えたため decline。署名も再送も発生しない。",
         ...decision.detail,
       });
-      rec.event("pay.declined", { endpoint, reason: decision.reason, retry_sent: false });
-      return { status: "declined", reason: decision.reason, detail: decision.detail };
+      rec.event("pay.declined", {
+        endpoint,
+        reason: decision.reason,
+        rule: decision.rule,
+        retry_sent: false,
+        process_payment_called: false,
+      });
+      return {
+        status: "declined",
+        reason: decision.reason,
+        detail: { ...decision.detail, rule: decision.rule },
+      };
     }
 
-    if (decision.verdict === "needs_approval") {
-      // 承認点1: 初回エンドポイントへの支払い。
-      if (cfg.autoApprove) {
-        rec.event("approval.point", {
-          point: 1,
-          name: "初回エンドポイントへの支払い",
+    // ---- 5b. 層3: 承認の有効範囲を見る ----
+    const coverage = grants.covers(endpoint, demand.amountAtomic);
+    let approvalForReceipt: Receipt["approval"];
+
+    if (coverage.covered) {
+      rec.event("guard.approval.covered", {
+        endpoint,
+        scope: ApprovalLedger.describe(coverage.grant),
+        note: "既存の承認範囲内なので人間に再度聞かない",
+      });
+      approvalForReceipt = {
+        approver: coverage.grant.approver,
+        at: coverage.grant.at,
+        scope: ApprovalLedger.describe(coverage.grant),
+      };
+    } else {
+      const decisionRecord = await askHuman(deps, endpoint, demand, coverage.reason, coverage.grant);
+      if (!decisionRecord.approved) {
+        rec.event("pay.declined", {
           endpoint,
-          asked_human: false,
-          approved: true,
-          note: "AUTO_APPROVE=true が明示指定された（既定は false）",
+          reason: "not_approved",
+          retry_sent: false,
+          process_payment_called: false,
         });
-      } else {
-        const record = await approver.ask({
-          endpoint,
-          rail: demand.rail,
-          amountUsd: atomicToUsd(demand.amountAtomic),
-          asset: demand.asset,
-          network: demand.network,
-          payTo: demand.payTo,
-          reason: "first_time_endpoint",
-        });
-        rec.event("approval.point", {
-          point: 1,
-          name: "初回エンドポイントへの支払い",
-          endpoint,
-          asked_human: true,
-          approved: record.approved,
-          approver: record.approver,
-          at: record.at,
-          amount_usd: record.amountUsd,
-        });
-        if (!record.approved) {
-          rec.event("pay.declined", { endpoint, reason: "not_approved", retry_sent: false });
-          return {
-            status: "declined",
-            reason: "not_approved",
-            detail: { approver: record.approver, at: record.at },
-          };
-        }
+        return {
+          status: "declined",
+          reason: "not_approved",
+          detail: { approver: decisionRecord.approver, at: decisionRecord.at },
+        };
       }
+      const grant = grants.record(endpoint, demand.amountAtomic, decisionRecord);
+      if (!grant) throw new Error("承認済みなのに grant が作られなかった");
+      rec.event("guard.approval.granted", {
+        endpoint,
+        scope: ApprovalLedger.describe(grant),
+        grants: grants.snapshot(),
+      });
+      approvalForReceipt = {
+        approver: decisionRecord.approver,
+        at: decisionRecord.at,
+        scope: ApprovalLedger.describe(grant),
+      };
+    }
+
+    // ---- 5c. 二重支払いの抑止 ----
+    const begin = demands.beginPayment(ledgerKey);
+    if (!begin.ok) {
+      rec.event("guard.duplicate.blocked", {
+        endpoint,
+        fingerprint,
+        reason: begin.reason,
+        ...demands.snapshot(),
+      });
+      rec.event("pay.declined", { endpoint, reason: begin.reason, retry_sent: false });
+      return { status: "declined", reason: begin.reason };
     }
 
     // ---- 6. 承認済み。決済証明を作る（鍵はこの内側にしか無い） ----
-    const proof = await backend.processPayment(demand);
+    const proof = await backend.processPayment(demand, { clientToken: begin.entry.clientToken });
     rec.event("pay.proof", {
       endpoint,
       rail: proof.rail,
       status: proof.status,
+      outcome: proof.outcome,
       processPaymentId: proof.processPaymentId,
       proofSource: backend.kind,
     });
 
-    // ---- 再送 ----
+    // ---- 再送（回数上限あり） ----
+    const resend = demands.beginResend(ledgerKey);
+    if (!resend.ok) {
+      rec.event("guard.retry.blocked", { endpoint, reason: resend.reason, ...demands.snapshot() });
+      return { status: "declined", reason: resend.reason };
+    }
+
     const retry =
       proof.rail === "x402"
         ? await x402.retryWithPayment(
@@ -154,6 +209,17 @@ export async function pay(
           )
         : await mpp.retryWithCredential(rec, endpoint, proof.paymentCredential);
 
+    if (retry.status === 402) {
+      // 402 が返り続けるとき、署名し直して投げ直さない。
+      // 同じ金額を二度払う事故は、ここで止めるのが一番安い。
+      rec.event("pay.resend_rejected", {
+        endpoint,
+        status: retry.status,
+        note: "売り手が支払いを受け付けなかった。再署名はしない。",
+        body: retry.bodyText.slice(0, 300),
+      });
+      return { status: "declined", reason: "payment_rejected_by_merchant" };
+    }
     if (retry.status < 200 || retry.status >= 300) {
       rec.event("pay.retry_failed", { endpoint, status: retry.status, body: retry.bodyText.slice(0, 400) });
       return { status: "error", reason: `retry_status_${retry.status}` };
@@ -161,12 +227,28 @@ export async function pay(
 
     // ---- 7. 200/success と receipt ----
     const merchant = deps.merchantKind(endpoint);
+    const receiptMeta = {
+      proofSource: backend.kind,
+      merchant,
+      paymentStatus: proof.status,
+      approval: approvalForReceipt,
+    } as const;
     const receipt =
       proof.rail === "x402"
-        ? x402.receiptFrom(retry, demand, backend.kind, merchant)
-        : mpp.receiptFrom(retry, demand, backend.kind, merchant);
+        ? x402.receiptFrom(retry, demand, receiptMeta)
+        : mpp.receiptFrom(retry, demand, receiptMeta);
 
-    limiter.commit(endpoint, demand.amountAtomic);
+    limiter.commit(demand.amountAtomic);
+    const settledCount = demands.markSettled(ledgerKey, fingerprint);
+    if (settledCount > 1) {
+      // 止めはしない（同じ商品の再購入は正当）。気づけるようにだけしておく。
+      rec.event("guard.duplicate.session_repeat", {
+        endpoint,
+        fingerprint,
+        times_settled_in_session: settledCount,
+        note: "経済的に同一の請求がセッション内で複数回成立した",
+      });
+    }
     rec.event("pay.success", { endpoint, receipt, ...limiter.snapshot() });
 
     return { status: "success", receipt };
@@ -179,6 +261,68 @@ export async function pay(
     rec.event("pay.error", { endpoint, error: (err as Error).message });
     return { status: "error", reason: (err as Error).message };
   }
+}
+
+async function askHuman(
+  deps: PayDeps,
+  endpoint: string,
+  demand: { rail: string; amountAtomic: bigint; asset: string; network: string; payTo: string },
+  reason: "first_time_endpoint" | "over_granted_amount",
+  previousGrant: Grant | undefined,
+): Promise<ApprovalRecord> {
+  const { cfg, rec, approver } = deps;
+  const amountUsd = atomicToUsd(demand.amountAtomic);
+  const pointName =
+    reason === "first_time_endpoint" ? "初回エンドポイントへの支払い" : "承認済み金額を超える支払い";
+
+  if (cfg.autoApprove) {
+    const record: ApprovalRecord = {
+      endpoint,
+      rail: demand.rail,
+      amountUsd,
+      asset: demand.asset,
+      network: demand.network,
+      payTo: demand.payTo,
+      reason,
+      approved: true,
+      approver: "AUTO_APPROVE",
+      at: new Date().toISOString(),
+      mode: "auto",
+    };
+    rec.event("approval.point", {
+      point: 1,
+      name: pointName,
+      endpoint,
+      asked_human: false,
+      approved: true,
+      note: "AUTO_APPROVE=true が明示指定された（既定は false）",
+    });
+    return record;
+  }
+
+  const record = await approver.ask({
+    endpoint,
+    rail: demand.rail,
+    amountUsd,
+    asset: demand.asset,
+    network: demand.network,
+    payTo: demand.payTo,
+    reason,
+  });
+  rec.event("approval.point", {
+    point: 1,
+    name: pointName,
+    endpoint,
+    asked_human: true,
+    approved: record.approved,
+    approver: record.approver,
+    at: record.at,
+    amount_usd: record.amountUsd,
+    ...(previousGrant
+      ? { previous_scope: ApprovalLedger.describe(previousGrant) }
+      : {}),
+  });
+  return record;
 }
 
 function guessRail(endpoint: string): Rail {

@@ -48,3 +48,59 @@
    売り手側エッジ（CloudFront/WAF の x402、`nde1375fd27c9`）とは別物という
    注記は正しかったが、**買い手側でも AgentCore が担うのは一部**という点は
    計画時より踏み込んで書ける。
+
+---
+
+# 追記（2026-08-25）: GA を踏まえた差し替え
+
+出典の区分:
+**[SDK実測]** = このセッションで SDK の生成モデルを読んで確認（`npm run check:ga` が再現）
+**[指示書経由]** = 開発指示書が AWS 公式 docs から引いた値。**本セッションでは未検証**（docs は egress 許可外）
+
+## A（置き換えられる・根拠あり）追加分
+
+| # | 計画側の書き方 | 置換後 | 区分・出典 |
+|---|---|---|---|
+| A11 | 「AgentCore payments は preview」 | GA は 2026-08-18。preview は 2026-04 | [指示書経由] |
+| A12 | 「AgentCore はカストディを提供する」 | **誤り。AgentCore はオーケストレーション。** 鍵の安全は下の CoinbaseCDP / StripePrivy が担い、AgentCore 単体では担保しない。コネクタ無しでは買い手ウォレットを作れない | [SDK実測]（`PaymentConnectorType` / `PaymentCredentialProviderVendorType` が両方とも `CoinbaseCDP` \| `StripePrivy`）|
+| A13 | 「per-call 上限はいずれ入るだろう」 | **GA 後の SDK 3.1117.0 にも無い。** `SessionLimits.maxSpendAmount` はセッション累計のみ、通貨 `USD` 固定 | [SDK実測] |
+| A14 | 「AWS 側の従量課金が読めない」 | AgentCore payments 自体は AWS 追加課金なし。費用はウォレット提供元の**件数課金**（CDP 約 $0.005/op、`ProcessPayment` 1 回 = 1 op） | [指示書経由・未検証] |
+| A15 | 「上限を超えたら止まる」（A7 の続き） | どの規則で止まったかまで出せるようになった。**セッション累計に余裕があっても per_call だけで decline する**ことを分離して実測（`artifacts/per-call-only`）。ログに `rule: "per_call_max"` と `enforced_by: "harness-only (AgentCore に該当 API 無し)"` が残る | 本リポジトリ実測 |
+| A16 | 「承認は都度」 | **承認に金額の天井を付けた。** $0.01 を承認しても同一オリジンの $0.03 は再度聞く（`artifacts/grant-scope-exceeded`）。「一度払ったオリジンは以後ノーチェック」という前の実装の穴を塞いだ | 本リポジトリ実測 |
+
+## B（未確認のまま書く）追加分
+
+| # | 項目 | 現状 | 記事での書き方 |
+|---|---|---|---|
+| B7 | `ProcessPayment` の status | **一次情報どうしが食い違っている。** GA 後の SDK は `PROOF_GENERATED` 単一、GA docs は `PENDING/SUCCESS/FAILED` | 「どちらが現行か確定していない」と書く。片方を断定しない |
+| B8 | `SUCCESS` 時点でオンチェーン確定しているか | **未確認**。買い手再送が要るかどうかがこれで決まる | 「AgentCore が返すのは証明までで、再送は買い手」と書けるのは `PROOF_GENERATED` を前提にした場合だけ、と留保を付ける |
+| B9 | MPP の `paymentType` enum 値 | SDK は `MPP`、GA quick start は `CRYPTO_X402` のみ記載 | SDK 側の値を書き、docs 未確認と添える |
+| B10 | ProcessPayment payload の network 表記 | CAIP-2（`eip155:84532`）か slug（`base-sepolia`）か未確定 | 書かない。実装は両対応にしてある |
+| B11 | `AWS_MARKETPLACE_SUBSCRIPTION_REQUIRED` | コネクタ status に存在する [SDK実測] が、どのコネクタで必要になるかは未確認 | 存在だけ触れて条件は書かない |
+
+## C（計画時に無かった論点）追加分
+
+5. **一次情報が 1 つとは限らない。**
+   GA 後に出た SDK の enum と、GA docs の enum が食い違っている。
+   「公式ドキュメントに書いてある」と「API が実際に受ける」は別物で、
+   **どちらか片方に寄せて実装すると、もう一方の環境で壊れる。**
+   本ハーネスは status を不透明な文字列として扱い、分類だけを 1 箇所に寄せ、
+   未知の値は停止側に倒した。エージェント決済のように
+   「間違えると金が動く」領域では、この倒し方は書く価値がある。
+
+6. **プロビジョニングには人手が 2 回入る。**
+   コネクタの OAuth 同意（`PENDING_AUTHENTICATION` → `authorizationUrl`）と、
+   instrument の入金（`redirectUrl`）。**「エージェントが自律的に決済する」までの
+   前段は、人間が 2 回ブラウザを開く作業**である。ここは自動化されていない。
+   三層の C（判断の責任）が、実は運用の入口にも残っている。
+
+7. **件数課金は少額決済の話を変える。**
+   料金が取引額の％ではなく件数なら、$0.001 の支払いに $0.005 の op 費用がかかる。
+   per-call 上限は「使いすぎ防止」だけでなく「1 件あたりの原価割れ防止」の意味を持つ。
+   [指示書経由・未検証] なので、記事に数字を出すなら料金ページの再確認が要る。
+
+8. **再送を 1 回に切る判断。**
+   402 が返り続けるとき、署名し直して投げ直すと同じ金額を二度払う事故になりうる。
+   本ハーネスは**再送を既定 1 回**にし、402 で返されたら再署名しない。
+   `clientToken` を demand ごとに固定して AgentCore の冪等性にも載せている。
+   「リトライは親切」ではなく「リトライは支出」という向きの話。

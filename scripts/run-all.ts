@@ -68,6 +68,43 @@ const SCENARIOS: Scenario[] = [
     purpose: "T7: 対話 CLI で人間が否認した記録",
   },
   {
+    label: "per-call-only",
+    args: [
+      "--query=premium",
+      "--rail=x402",
+      "--endpoint=http://127.0.0.1:8402/x402/premium",
+      "--approve=yes",
+    ],
+    // セッション累計上限は余裕がある（$5.00）。それでも per_call_max($0.05) で落ちる。
+    // AgentCore の SessionLimits では止められない領域だという証拠になる。
+    env: { PER_CALL_MAX_USD: "0.05", SESSION_MAX_USD: "5.00" },
+    expect: "declined",
+    purpose: "B1: セッション累計は未超過でも per_call_max だけで decline する（ハーネス側にしか無い拘束）",
+  },
+  {
+    label: "grant-scope-exceeded",
+    args: [
+      "--query=x402",
+      "--rail=x402",
+      "--endpoints=http://127.0.0.1:8402/x402/weather,http://127.0.0.1:8402/x402/standard",
+      "--approve=no-after-first",
+    ],
+    expect: "declined",
+    purpose:
+      "B3: 同一オリジンでも、承認した金額($0.01)を超える請求($0.03)は再度承認を求める",
+  },
+  {
+    label: "merchant-rejects",
+    args: [
+      "--query=x402",
+      "--rail=x402",
+      "--endpoint=http://127.0.0.1:8402/x402/always-402",
+      "--approve=yes",
+    ],
+    expect: "declined",
+    purpose: "B2: 再送が 402 で返されても署名し直さない（再送は1回まで）",
+  },
+  {
     label: "mainnet-halt",
     args: [
       "--query=x402",
@@ -165,6 +202,13 @@ const collected = results.map((r) => {
       success_200: events.some((e) => e["type"] === "http.response" && e["status"] === 200),
       receipt: has("pay.success"),
       mainnet_halt: has("guard.mainnet.detected") || has("harness.halt"),
+      limit_rule: (() => {
+        const e = events.find((x) => x["type"] === "guard.limit.decision" && x["rule"]);
+        return e ? String(e["rule"]) : null;
+      })(),
+      process_payment_called: has("pay.proof"),
+      approval_scope_recorded: has("guard.approval.granted") || has("guard.approval.covered"),
+      resend_rejected: has("pay.resend_rejected"),
     },
   };
 });

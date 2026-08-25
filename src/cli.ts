@@ -7,6 +7,8 @@ import { runSession } from "./agent/harness.js";
 import { AnthropicPlanner, ScriptedPlanner, type Planner } from "./agent/planner.js";
 import type { ToolContext } from "./agent/tools.js";
 import { CliApprover, PresetApprover, approverIdentity, type Approver } from "./guard/approval.js";
+import { ApprovalLedger } from "./guard/approvalLedger.js";
+import { DemandLedger } from "./guard/demandLedger.js";
 import { SpendLimiter } from "./guard/limits.js";
 import { assertNoMainnetConfig, MainnetDetected } from "./guard/network.js";
 import { Recorder } from "./log/recorder.js";
@@ -15,9 +17,10 @@ interface Args {
   query: string;
   rail?: "x402" | "mpp";
   endpoint?: string;
+  endpoints?: string[];
   backend: "agentcore" | "local-signer";
   planner: "anthropic" | "scripted";
-  approve: "prompt" | "yes" | "no";
+  approve: "prompt" | "yes" | "no" | "no-after-first";
   allowLive: boolean;
   runId: string;
   outDir: string;
@@ -35,6 +38,7 @@ function parseArgs(argv: string[]): Args {
     query: get("query") ?? "",
     rail: get("rail") as Args["rail"],
     endpoint: get("endpoint"),
+    endpoints: get("endpoints")?.split(",").filter(Boolean),
     backend: (get("backend") as Args["backend"]) ?? "local-signer",
     planner: (get("planner") as Args["planner"]) ?? "scripted",
     approve: (get("approve") as Args["approve"]) ?? "prompt",
@@ -81,9 +85,19 @@ export async function main(argv: string[]): Promise<number> {
   const approver: Approver =
     args.approve === "prompt"
       ? new CliApprover(rec)
-      : new PresetApprover(rec, { "*": args.approve === "yes" }, approverIdentity());
+      : new PresetApprover(
+          rec,
+          { "*": args.approve === "yes" },
+          approverIdentity(),
+          args.approve === "no-after-first",
+        );
 
   const limiter = new SpendLimiter(cfg);
+  const grants = new ApprovalLedger();
+  const demands = new DemandLedger({
+    maxProcessPaymentAttempts: Number(process.env["MAX_PROCESS_PAYMENT_ATTEMPTS"] ?? "1"),
+    maxResendAttempts: Number(process.env["MAX_RESEND_ATTEMPTS"] ?? "1"),
+  });
 
   const planner: Planner =
     args.planner === "anthropic"
@@ -92,7 +106,11 @@ export async function main(argv: string[]): Promise<number> {
             ? `${args.endpoint} で有料データを1件買ってほしい。`
             : `${args.query || "testnet で買える課金エンドポイント"}を探して、1件だけ支払ってほしい。`,
         )
-      : new ScriptedPlanner(args.query, { rail: args.rail, endpoint: args.endpoint });
+      : new ScriptedPlanner(args.query, {
+          rail: args.rail,
+          endpoint: args.endpoint,
+          endpoints: args.endpoints,
+        });
 
   const ctx: ToolContext = {
     payDeps: {
@@ -101,6 +119,8 @@ export async function main(argv: string[]): Promise<number> {
       backend,
       limiter,
       approver,
+      grants,
+      demands,
       merchantKind: (endpoint) =>
         endpoint.startsWith("http://127.0.0.1") || endpoint.startsWith("http://localhost")
           ? "mock-local"
@@ -141,6 +161,8 @@ export async function main(argv: string[]): Promise<number> {
       steps: result.steps,
       results: receipts,
       limits: limiter.snapshot(),
+      approval_grants: grants.snapshot(),
+      duplicate_guard: demands.snapshot(),
     });
 
     const last = receipts[receipts.length - 1] as { status?: string } | undefined;

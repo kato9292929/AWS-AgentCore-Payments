@@ -1,0 +1,65 @@
+{
+  "generatedAt": "2026-08-25T17:16:41.167Z",
+  "dryRun": true,
+  "plan": {
+    "region": "us-east-1",
+    "vendor": "CoinbaseCDP",
+    "roleArn": "<AGENTCORE_ROLE_ARN>",
+    "userEmail": "<PAYMENT_USER_EMAIL>",
+    "names": {
+      "credentialProvider": "buyer-harness-cred-8162bf7d",
+      "paymentManager": "buyer-harness-manager-8162bf7d",
+      "paymentConnector": "buyer-harness-connector-8162bf7d"
+    },
+    "walletNetwork": "ETHEREUM"
+  },
+  "steps": [
+    {
+      "step": "dry-run",
+      "status": "planned",
+      "detail": {
+        "region": "us-east-1",
+        "vendor": "CoinbaseCDP",
+        "roleArn": "<AGENTCORE_ROLE_ARN>",
+        "userEmail": "<PAYMENT_USER_EMAIL>",
+        "names": {
+          "credentialProvider": "buyer-harness-cred-8162bf7d",
+          "paymentManager": "buyer-harness-manager-8162bf7d",
+          "paymentConnector": "buyer-harness-connector-8162bf7d"
+        },
+        "walletNetwork": "ETHEREUM"
+      }
+    },
+    {
+      "step": "1. CreatePaymentCredentialProvider",
+      "status": "planned",
+      "detail": {}
+    },
+    {
+      "step": "2. CreatePaymentManager → GetPaymentManager が READY になるまで待つ",
+      "status": "planned",
+      "detail": {}
+    },
+    {
+      "step": "3. CreatePaymentConnector → READY（PENDING_AUTHENTICATION なら authorizationUrl を人間が開く）",
+      "status": "planned",
+      "detail": {}
+    },
+    {
+      "step": "4. CreatePaymentInstrument → redirectUrl を人間が開いて入金",
+      "status": "planned",
+      "detail": {}
+    },
+    {
+      "step": "5. GetPaymentInstrument が ACTIVE になるまで待つ",
+      "status": "planned",
+      "detail": {}
+    },
+    {
+      "step": "6. GetPaymentInstrumentBalance で原資を確認",
+      "status": "planned",
+      "detail": {}
+    }
+  ],
+  "result": null
+}

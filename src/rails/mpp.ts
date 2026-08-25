@@ -144,8 +144,12 @@ export async function retryWithCredential(
 export function receiptFrom(
   trip: RoundTrip,
   demand: PaymentDemand,
-  proofSource: Receipt["proofSource"],
-  merchant: Receipt["merchant"],
+  meta: {
+    proofSource: Receipt["proofSource"];
+    merchant: Receipt["merchant"];
+    paymentStatus: string;
+    approval: Receipt["approval"];
+  },
 ): Receipt {
   const raw = trip.headers["payment-receipt"];
   let reference = "";
@@ -163,8 +167,12 @@ export function receiptFrom(
     payTo: demand.payTo,
     rail: "mpp",
     timestamp,
-    proofSource,
+    proofSource: meta.proofSource,
+    paymentStatus: meta.paymentStatus,
+    // 売り手が受領ヘッダを返したときだけ「確定」を名乗る
+    settlementConfirmedBy: reference ? "merchant-receipt" : "none",
     testnet: true,
-    merchant,
+    merchant: meta.merchant,
+    approval: meta.approval,
   };
 }
