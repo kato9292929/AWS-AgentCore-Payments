@@ -21,13 +21,13 @@
     {
       "status": "success",
       "receipt": {
-        "reference": "0xe3fb83db830d4d51ca62ed0e950ac4f8aebd721afa2e5a7bc6ff7f125bae3b36",
+        "reference": "0x38ddd37a7a9fbc1dd72fa46d0d0a94c8232ccd69eea983c6174521fb9d338682",
         "amount": "20000",
         "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
         "network": "base-sepolia",
         "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
         "rail": "mpp",
-        "timestamp": "2026-08-25T17:16:17.021Z",
+        "timestamp": "2026-08-26T14:43:50.940Z",
         "proofSource": "local-signer",
         "paymentStatus": "PROOF_GENERATED",
         "settlementConfirmedBy": "merchant-receipt",
@@ -35,7 +35,7 @@
         "merchant": "mock-local",
         "approval": {
           "approver": "hello@x402jp.com",
-          "at": "2026-08-25T17:16:17.008Z",
+          "at": "2026-08-26T14:43:50.926Z",
           "scope": "http://127.0.0.1:8402 まで 0.020000 USD/回（今セッション内）"
         }
       }
@@ -52,7 +52,7 @@
       "origin": "http://127.0.0.1:8402",
       "ceiling_usd": "0.020000",
       "approver": "hello@x402jp.com",
-      "at": "2026-08-25T17:16:17.008Z"
+      "at": "2026-08-26T14:43:50.926Z"
     }
   ],
   "duplicate_guard": {

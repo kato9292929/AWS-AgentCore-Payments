@@ -1,27 +1,39 @@
 /**
- * AgentCore payments のプロビジョニング（GA の 6 段）。
+ * AgentCore payments のプロビジョニング。
  *
- *   1. CreatePaymentCredentialProvider  … Coinbase CDP / Stripe Privy の資格情報を預ける
- *   2. CreatePaymentManager             … トップリソース。READY になるまで待つ
- *   3. CreatePaymentConnector           … manager と provider をつなぐ。READY になるまで待つ
- *   4. CreatePaymentInstrument          … 買い手ウォレット。redirectUrl を人間が開いて入金
- *   5. （待機）                          … instrument が ACTIVE になるまで
- *   6. GetPaymentInstrumentBalance      … 原資が入ったかの確認（任意）
+ * 2 つのモードがある。既定は quick-create。
+ *
+ *   quick-create（Coinbase CDP のみ）:
+ *     1. CreatePaymentManager        … READY を待つ
+ *     2. CreatePaymentConnector      … provisionMode=QUICK_CREATE。
+ *                                      PENDING_AUTHENTICATION で authorizationUrl が返るので
+ *                                      人間がブラウザで OAuth 同意 → READY を待つ
+ *     3. CreatePaymentInstrument     … redirectUrl を人間が開いて署名許可＋入金
+ *     4. （待機）                     … instrument が ACTIVE になるまで
+ *     5. GetPaymentInstrumentBalance … 原資の確認（任意）
+ *
+ *     CDP の apiKeyId / apiKeySecret / walletSecret は**要らない**。
+ *     credential provider はサービス側が同意後に作る。
+ *
+ *   manual（Stripe Privy、または CDP の鍵を手で持ち込む場合）:
+ *     0. CreatePaymentCredentialProvider … 資格情報を預ける
+ *     以降は quick-create と同じ 1〜5。
  *
  * 出力は artifacts/provision-output.json と標準出力。
- * **クレデンシャルは出力にもログにも出さない。** 出るのは ARN / ID / status だけ。
+ * **クレデンシャルは出力にもログにも出さない。** 出るのは ARN / ID / status / URL だけ。
  *
  * 使い方:
  *   export AWS_REGION=us-west-2
  *   export AGENTCORE_ROLE_ARN=arn:aws:iam::<acct>:role/<role>
  *   export PAYMENT_USER_EMAIL=you@example.com
- *   # Coinbase CDP を使う場合
- *   export CDP_API_KEY_ID=... CDP_API_KEY_SECRET=... CDP_WALLET_SECRET=...
- *   # Stripe Privy を使う場合
- *   export PRIVY_APP_ID=... PRIVY_APP_SECRET=... PRIVY_AUTHORIZATION_ID=... PRIVY_AUTHORIZATION_PRIVATE_KEY=...
  *
- *   npx tsx scripts/provision-agentcore.mts
- *   npx tsx scripts/provision-agentcore.mts --dry-run   # 資格情報なしで手順と入力だけ確認
+ *   npx tsx scripts/provision-agentcore.mts                     # quick-create（既定）
+ *   npx tsx scripts/provision-agentcore.mts --dry-run           # 手順と入力だけ確認
+ *   npx tsx scripts/provision-agentcore.mts --mode=manual       # 鍵を手で持ち込む
+ *
+ *   manual のとき追加で必要な env:
+ *     CDP:   CDP_API_KEY_ID / CDP_API_KEY_SECRET / CDP_WALLET_SECRET
+ *     Privy: PRIVY_APP_ID / PRIVY_APP_SECRET / PRIVY_AUTHORIZATION_ID / PRIVY_AUTHORIZATION_PRIVATE_KEY
  */
 import {
   BedrockAgentCoreClient,
@@ -43,6 +55,8 @@ import { resolve } from "node:path";
 import { assertNoMainnetConfig } from "../src/guard/network.js";
 
 const DRY_RUN = process.argv.includes("--dry-run");
+const MODE: "quick-create" | "manual" =
+  process.argv.find((a) => a.startsWith("--mode="))?.slice(7) === "manual" ? "manual" : "quick-create";
 const REGION = process.env["AWS_REGION"] ?? "us-east-1";
 const NAME_PREFIX = process.env["PROVISION_NAME_PREFIX"] ?? "buyer-harness";
 const OUT_PATH = resolve("artifacts", "provision-output.json");
@@ -51,7 +65,7 @@ type Vendor = "CoinbaseCDP" | "StripePrivy";
 
 interface Step {
   step: string;
-  status: "ok" | "skipped" | "failed" | "planned";
+  status: "ok" | "skipped" | "failed" | "planned" | "waiting";
   detail: Record<string, unknown>;
 }
 
@@ -67,17 +81,19 @@ function requireEnv(name: string): string {
   return v;
 }
 
-/** どちらのベンダを使うかを env から決める。両方揃っていたら CDP を優先。 */
-function pickVendor(): Vendor {
+function banner(lines: string[]): void {
+  process.stdout.write(`\n${"─".repeat(72)}\n${lines.join("\n")}\n${"─".repeat(72)}\n\n`);
+}
+
+/** manual モードでどちらのベンダを使うかを env から決める。両方揃っていたら CDP を優先。 */
+function pickManualVendor(): Vendor {
   if (process.env["CDP_API_KEY_ID"]) return "CoinbaseCDP";
   if (process.env["PRIVY_APP_ID"]) return "StripePrivy";
-  throw new Error(
-    "CDP_API_KEY_ID か PRIVY_APP_ID のどちらかが必要（1-B / 1-C）",
-  );
+  throw new Error("manual モードには CDP_API_KEY_ID か PRIVY_APP_ID のどちらかが必要");
 }
 
 /**
- * providerConfigurationInput を組み立てる。
+ * providerConfigurationInput を組み立てる（manual モードのみ）。
  * 値は返り値の中にしか置かず、ログにも出力ファイルにも入れない。
  */
 function buildProviderConfiguration(vendor: Vendor) {
@@ -125,11 +141,14 @@ async function poll<T>(
 }
 
 async function main(): Promise<number> {
-  // testnet 以外の設定が混ざっていないか（7節の実マネー禁止ガード）
+  // testnet 以外の設定が混ざっていないか（実マネー禁止ガード）
   assertNoMainnetConfig();
   mkdirSync(resolve("artifacts"), { recursive: true });
 
-  const vendor = DRY_RUN ? ((process.env["PROVISION_VENDOR"] as Vendor) ?? "CoinbaseCDP") : pickVendor();
+  // quick-create は Coinbase CDP のみ。Privy は Quick Create 非対応。
+  const vendor: Vendor =
+    MODE === "quick-create" ? "CoinbaseCDP" : DRY_RUN ? "CoinbaseCDP" : pickManualVendor();
+
   const userEmail = DRY_RUN
     ? (process.env["PAYMENT_USER_EMAIL"] ?? "<PAYMENT_USER_EMAIL>")
     : requireEnv("PAYMENT_USER_EMAIL");
@@ -139,52 +158,75 @@ async function main(): Promise<number> {
   const suffix = randomUUID().slice(0, 8);
 
   const plan = {
+    mode: MODE,
     region: REGION,
     vendor,
     roleArn,
     userEmail,
     names: {
-      credentialProvider: `${NAME_PREFIX}-cred-${suffix}`,
       paymentManager: `${NAME_PREFIX}-manager-${suffix}`,
       paymentConnector: `${NAME_PREFIX}-connector-${suffix}`,
+      ...(MODE === "manual" ? { credentialProvider: `${NAME_PREFIX}-cred-${suffix}` } : {}),
     },
-    // testnet 固定。ウォレットの network は CryptoWalletNetwork enum（ETHEREUM|SOLANA）で、
+    // instrument の network は CryptoWalletNetwork enum（ETHEREUM|SOLANA）。
     // 実際にどのチェーンで払うかは 402 の要求と ProcessPayment の payload が決める。
+    // ETHEREUM を選ぶので、売り手は EVM 系（base-sepolia 等）を提示するものに揃えること。
     walletNetwork: "ETHEREUM" as const,
+    credentialsNeeded:
+      MODE === "quick-create"
+        ? "なし（OAuth 同意でサービスが credential provider を作る）"
+        : vendor === "CoinbaseCDP"
+          ? "CDP_API_KEY_ID / CDP_API_KEY_SECRET / CDP_WALLET_SECRET"
+          : "PRIVY_APP_ID / PRIVY_APP_SECRET / PRIVY_AUTHORIZATION_ID / PRIVY_AUTHORIZATION_PRIVATE_KEY",
   };
 
   if (DRY_RUN) {
     note("dry-run", "planned", plan);
-    for (const s of [
-      "1. CreatePaymentCredentialProvider",
-      "2. CreatePaymentManager → GetPaymentManager が READY になるまで待つ",
-      "3. CreatePaymentConnector → READY（PENDING_AUTHENTICATION なら authorizationUrl を人間が開く）",
-      "4. CreatePaymentInstrument → redirectUrl を人間が開いて入金",
-      "5. GetPaymentInstrument が ACTIVE になるまで待つ",
-      "6. GetPaymentInstrumentBalance で原資を確認",
-    ]) {
-      note(s, "planned", {});
-    }
-    writeOutput({ dryRun: true, plan, steps, result: null });
+    const stepList =
+      MODE === "quick-create"
+        ? [
+            "1. CreatePaymentManager → READY を待つ",
+            "2. CreatePaymentConnector（QUICK_CREATE）→ authorizationUrl を人間が開いて OAuth 同意 → READY を待つ",
+            "3. CreatePaymentInstrument → redirectUrl を人間が開いて署名許可＋入金",
+            "4. GetPaymentInstrument が ACTIVE になるまで待つ",
+            "5. GetPaymentInstrumentBalance で原資を確認",
+          ]
+        : [
+            "0. CreatePaymentCredentialProvider（鍵を預ける）",
+            "1. CreatePaymentManager → READY を待つ",
+            "2. CreatePaymentConnector（MANUAL）→ READY を待つ",
+            "3. CreatePaymentInstrument → redirectUrl を人間が開いて署名許可＋入金",
+            "4. GetPaymentInstrument が ACTIVE になるまで待つ",
+            "5. GetPaymentInstrumentBalance で原資を確認",
+          ];
+    for (const s of stepList) note(s, "planned", {});
+    writeOutput({ dryRun: true, mode: MODE, plan, steps, result: null });
     return 0;
   }
 
   const control = new BedrockAgentCoreControlClient({ region: REGION });
   const data = new BedrockAgentCoreClient({ region: REGION });
 
-  // ---- 1. credential provider ----
-  const cred = await control.send(
-    new CreatePaymentCredentialProviderCommand({
-      name: plan.names.credentialProvider,
-      credentialProviderVendor: vendor,
-      providerConfigurationInput: buildProviderConfiguration(vendor),
-    }),
-  );
-  const credentialProviderArn = cred.credentialProviderArn;
-  if (!credentialProviderArn) throw new Error("credentialProviderArn が返らなかった");
-  note("1. CreatePaymentCredentialProvider", "ok", { credentialProviderArn, vendor });
+  // ---- 0. credential provider（manual のみ） ----
+  let credentialProviderArn: string | undefined;
+  if (MODE === "manual") {
+    const cred = await control.send(
+      new CreatePaymentCredentialProviderCommand({
+        name: plan.names.credentialProvider!,
+        credentialProviderVendor: vendor,
+        providerConfigurationInput: buildProviderConfiguration(vendor),
+      }),
+    );
+    credentialProviderArn = cred.credentialProviderArn;
+    if (!credentialProviderArn) throw new Error("credentialProviderArn が返らなかった");
+    note("0. CreatePaymentCredentialProvider", "ok", { credentialProviderArn, vendor });
+  } else {
+    note("0. CreatePaymentCredentialProvider", "skipped", {
+      reason: "QUICK_CREATE ではサービス側が OAuth 同意後に作る",
+    });
+  }
 
-  // ---- 2. payment manager ----
+  // ---- 1. payment manager ----
   const mgr = await control.send(
     new CreatePaymentManagerCommand({
       name: plan.names.paymentManager,
@@ -197,7 +239,7 @@ async function main(): Promise<number> {
   const paymentManagerArn = mgr.paymentManagerArn;
   const paymentManagerId = mgr.paymentManagerId;
   if (!paymentManagerArn || !paymentManagerId) throw new Error("paymentManagerArn / Id が返らなかった");
-  note("2. CreatePaymentManager", "ok", { paymentManagerArn, paymentManagerId });
+  note("1. CreatePaymentManager", "ok", { paymentManagerArn, paymentManagerId });
 
   await poll(
     "PaymentManager",
@@ -206,37 +248,52 @@ async function main(): Promise<number> {
     (v) => v.status === "CREATE_FAILED",
     (v) => String(v.status),
   );
-  note("2b. GetPaymentManager READY", "ok", { paymentManagerId });
+  note("1b. GetPaymentManager READY", "ok", { paymentManagerId });
 
-  // ---- 3. connector ----
+  // ---- 2. connector ----
   const connector = await control.send(
     new CreatePaymentConnectorCommand({
       paymentManagerId,
       name: plan.names.paymentConnector,
       type: vendor,
-      credentialProviderConfigurations: [
-        vendor === "CoinbaseCDP"
-          ? { coinbaseCDP: { credentialProviderArn } }
-          : { stripePrivy: { credentialProviderArn } },
-      ],
-      provisionMode: "MANUAL",
+      // QUICK_CREATE では空配列。サービスが同意フローを回して provider を用意する。
+      credentialProviderConfigurations:
+        MODE === "quick-create"
+          ? []
+          : [
+              vendor === "CoinbaseCDP"
+                ? { coinbaseCDP: { credentialProviderArn: credentialProviderArn! } }
+                : { stripePrivy: { credentialProviderArn: credentialProviderArn! } },
+            ],
+      provisionMode: MODE === "quick-create" ? "QUICK_CREATE" : "MANUAL",
       clientToken: randomUUID(),
     }),
   );
   const paymentConnectorId = connector.paymentConnectorId;
   if (!paymentConnectorId) throw new Error("paymentConnectorId が返らなかった");
-  note("3. CreatePaymentConnector", "ok", {
+  note("2. CreatePaymentConnector", "ok", {
     paymentConnectorId,
+    provisionMode: MODE === "quick-create" ? "QUICK_CREATE" : "MANUAL",
     status: connector.status,
     ...(connector.authorizationUrl ? { authorizationUrl: connector.authorizationUrl } : {}),
   });
 
   if (connector.authorizationUrl) {
-    process.stdout.write(
-      `\n  >>> OAuth 同意が必要。ブラウザで開く: ${connector.authorizationUrl}\n\n`,
-    );
+    banner([
+      "  人手 (1/2): Coinbase の OAuth 同意",
+      "",
+      "  ブラウザで開いて同意する:",
+      `    ${connector.authorizationUrl}`,
+      "",
+      "  同意が済むと connector が READY になる。ここで待機する。",
+    ]);
+    note("2a. OAuth 同意待ち", "waiting", { authorizationUrl: connector.authorizationUrl });
   }
 
+  // 同意は人間の操作なので長めに待つ。
+  // authorizationUrl は PENDING_AUTHENTICATION の間だけ返るので、
+  // 更新されたら都度出し直す（期限切れで貼り直される場合がある）。
+  let shownUrl = connector.authorizationUrl ?? "";
   await poll(
     "PaymentConnector",
     () => control.send(new GetPaymentConnectorCommand({ paymentManagerId, paymentConnectorId })),
@@ -244,12 +301,20 @@ async function main(): Promise<number> {
     (v) =>
       v.status === "CREATE_FAILED" ||
       v.status === "AUTHENTICATION_FAILED" ||
-      v.status === "AUTHENTICATION_EXPIRED",
-    (v) => `${v.status}${v.authorizationUrl ? ` (open: ${v.authorizationUrl})` : ""}`,
+      v.status === "AUTHENTICATION_EXPIRED" ||
+      v.status === "AWS_MARKETPLACE_SUBSCRIPTION_REQUIRED",
+    (v) => {
+      if (v.authorizationUrl && v.authorizationUrl !== shownUrl) {
+        shownUrl = v.authorizationUrl;
+        process.stdout.write(`\n  同意 URL が更新された: ${v.authorizationUrl}\n\n`);
+      }
+      return String(v.status);
+    },
+    { intervalMs: 10_000, timeoutMs: 1_800_000 },
   );
-  note("3b. GetPaymentConnector READY", "ok", { paymentConnectorId });
+  note("2b. GetPaymentConnector READY", "ok", { paymentConnectorId });
 
-  // ---- 4. instrument ----
+  // ---- 3. instrument ----
   const inst = await data.send(
     new CreatePaymentInstrumentCommand({
       userId: userEmail,
@@ -270,26 +335,33 @@ async function main(): Promise<number> {
   const paymentInstrumentId = instrument?.paymentInstrumentId;
   if (!paymentInstrumentId) throw new Error("paymentInstrumentId が返らなかった");
   const redirectUrl = instrument?.paymentInstrumentDetails?.embeddedCryptoWallet?.redirectUrl;
-  note("4. CreatePaymentInstrument", "ok", {
+  const walletAddress = instrument?.paymentInstrumentDetails?.embeddedCryptoWallet?.walletAddress;
+  note("3. CreatePaymentInstrument", "ok", {
     paymentInstrumentId,
     status: instrument?.status,
-    walletAddress: instrument?.paymentInstrumentDetails?.embeddedCryptoWallet?.walletAddress,
+    walletAddress,
     ...(redirectUrl ? { redirectUrl } : {}),
   });
 
   if (redirectUrl) {
-    process.stdout.write(
-      [
-        "",
-        "  >>> 人手が要る。ブラウザで次を開き、ウォレットの紐付けと testnet USDC の入金を済ませる:",
-        `      ${redirectUrl}`,
-        "      Base Sepolia の USDC: 0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-        "",
-      ].join("\n"),
-    );
+    banner([
+      "  人手 (2/2): 署名許可の付与と testnet USDC の入金",
+      "",
+      "  Coinbase ホストの WalletHub をブラウザで開く:",
+      `    ${redirectUrl}`,
+      "",
+      "  ここで 2 つやる:",
+      "    1) このウォレットでの署名をエージェントに許可する",
+      "    2) Base Sepolia の testnet USDC を入金する",
+      `       トークン: 0x036CbD53842c5426634e7929541eC2318f3dCF7e`,
+      walletAddress ? `       ウォレット: ${walletAddress}` : "",
+      "",
+      "  済むと instrument が ACTIVE になる。ここで待機する。",
+    ].filter(Boolean));
+    note("3a. 署名許可・入金待ち", "waiting", { redirectUrl, walletAddress });
   }
 
-  // ---- 5. ACTIVE 待ち ----
+  // ---- 4. ACTIVE 待ち ----
   await poll(
     "PaymentInstrument",
     () =>
@@ -306,9 +378,9 @@ async function main(): Promise<number> {
     (v) => String(v.paymentInstrument?.status),
     { intervalMs: 10_000, timeoutMs: 1_800_000 },
   );
-  note("5. PaymentInstrument ACTIVE", "ok", { paymentInstrumentId });
+  note("4. PaymentInstrument ACTIVE", "ok", { paymentInstrumentId });
 
-  // ---- 6. 残高確認（任意。失敗しても続行） ----
+  // ---- 5. 残高確認（任意。失敗しても続行） ----
   try {
     const bal = await data.send(
       new GetPaymentInstrumentBalanceCommand({
@@ -320,39 +392,39 @@ async function main(): Promise<number> {
         token: "USDC",
       }),
     );
-    note("6. GetPaymentInstrumentBalance", "ok", {
+    note("5. GetPaymentInstrumentBalance", "ok", {
       chain: "BASE_SEPOLIA",
       token: "USDC",
       tokenBalance: bal.tokenBalance as unknown as Record<string, unknown>,
     });
   } catch (e) {
-    note("6. GetPaymentInstrumentBalance", "skipped", { error: (e as Error).message });
+    note("5. GetPaymentInstrumentBalance", "skipped", { error: (e as Error).message });
   }
 
   const result = {
+    mode: MODE,
     region: REGION,
     vendor,
-    credentialProviderArn,
+    ...(credentialProviderArn ? { credentialProviderArn } : {}),
     paymentManagerArn,
     paymentManagerId,
     paymentConnectorId,
     paymentInstrumentId,
+    walletAddress,
   };
-  writeOutput({ dryRun: false, plan, steps, result });
+  writeOutput({ dryRun: false, mode: MODE, plan, steps, result });
 
-  process.stdout.write(
-    [
-      "",
-      "──────── 次はこれを env に入れてライブ一周 ────────",
-      `export AWS_REGION=${REGION}`,
-      `export AGENTCORE_PAYMENT_MANAGER_ARN=${paymentManagerArn}`,
-      `export AGENTCORE_PAYMENT_INSTRUMENT_ID=${paymentInstrumentId}`,
-      `export AGENTCORE_PAYMENT_CONNECTOR_ID=${paymentConnectorId}`,
-      "npm run harness -- --label=x402-live --backend=agentcore --allow-live \\",
-      "  --endpoint=<公開売り手の URL> --rail=x402 --approve=prompt",
-      "",
-    ].join("\n"),
-  );
+  banner([
+    "  次はこれを env に入れてライブ一周",
+    "",
+    `export AWS_REGION=${REGION}`,
+    `export AGENTCORE_PAYMENT_MANAGER_ARN=${paymentManagerArn}`,
+    `export AGENTCORE_PAYMENT_INSTRUMENT_ID=${paymentInstrumentId}`,
+    `export AGENTCORE_PAYMENT_CONNECTOR_ID=${paymentConnectorId}`,
+    "",
+    "npm run harness -- --label=x402-live --backend=agentcore --allow-live \\",
+    "  --endpoint=<公開売り手の URL> --rail=x402 --approve=prompt",
+  ]);
   return 0;
 }
 
@@ -365,7 +437,7 @@ main()
   .then((code) => process.exit(code))
   .catch((err: Error) => {
     note("provision", "failed", { error: err.message });
-    writeOutput({ dryRun: DRY_RUN, steps, result: null, error: err.message });
+    writeOutput({ dryRun: DRY_RUN, mode: MODE, steps, result: null, error: err.message });
     process.stderr.write(`\nプロビジョニング失敗: ${err.message}\n`);
     process.exit(1);
   });

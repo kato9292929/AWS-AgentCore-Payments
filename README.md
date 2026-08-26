@@ -84,9 +84,15 @@ AGENTCORE_PAYMENT_MANAGER_ARN=... AGENTCORE_PAYMENT_INSTRUMENT_ID=... \
 資格情報とコネクタが揃ったら、プロビジョニングを 1 本走らせる。ハーネス側は無改修。
 
 ```bash
-npm run provision -- --dry-run   # 手順と入力の確認だけ（資格情報なしで走る）
-npm run provision                # 実行。人手が2回入る（OAuth同意・instrumentへの入金）
+npm run provision -- --dry-run     # 手順と入力の確認だけ（資格情報なしで走る）
+npm run provision                  # Coinbase Quick Create。CDP の鍵は要らない
+npm run provision -- --mode=manual # 鍵を手で持ち込む / Stripe Privy を使う場合
 ```
+
+既定の Quick Create では人手が2回入る。(1) connector の `authorizationUrl` を開いて
+Coinbase の OAuth 同意、(2) instrument の `redirectUrl` を開いて署名許可と
+testnet USDC の入金。**入金先アドレスは instrument を作るまで決まらない**ので、
+USDC は事前に用意するものではなく最後の工程。
 
 出力の ARN / ID を env に入れて `--backend=agentcore --allow-live` で回す。
 必要なもの一覧とライブ1回目で決着させる項目は `docs/T4-T5-blocked.md`。

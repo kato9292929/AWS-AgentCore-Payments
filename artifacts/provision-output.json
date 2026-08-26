@@ -1,62 +1,67 @@
 {
-  "generatedAt": "2026-08-25T17:16:41.167Z",
+  "generatedAt": "2026-08-26T14:43:00.705Z",
   "dryRun": true,
+  "mode": "manual",
   "plan": {
+    "mode": "manual",
     "region": "us-east-1",
     "vendor": "CoinbaseCDP",
     "roleArn": "<AGENTCORE_ROLE_ARN>",
     "userEmail": "<PAYMENT_USER_EMAIL>",
     "names": {
-      "credentialProvider": "buyer-harness-cred-8162bf7d",
-      "paymentManager": "buyer-harness-manager-8162bf7d",
-      "paymentConnector": "buyer-harness-connector-8162bf7d"
+      "paymentManager": "buyer-harness-manager-2a552258",
+      "paymentConnector": "buyer-harness-connector-2a552258",
+      "credentialProvider": "buyer-harness-cred-2a552258"
     },
-    "walletNetwork": "ETHEREUM"
+    "walletNetwork": "ETHEREUM",
+    "credentialsNeeded": "CDP_API_KEY_ID / CDP_API_KEY_SECRET / CDP_WALLET_SECRET"
   },
   "steps": [
     {
       "step": "dry-run",
       "status": "planned",
       "detail": {
+        "mode": "manual",
         "region": "us-east-1",
         "vendor": "CoinbaseCDP",
         "roleArn": "<AGENTCORE_ROLE_ARN>",
         "userEmail": "<PAYMENT_USER_EMAIL>",
         "names": {
-          "credentialProvider": "buyer-harness-cred-8162bf7d",
-          "paymentManager": "buyer-harness-manager-8162bf7d",
-          "paymentConnector": "buyer-harness-connector-8162bf7d"
+          "paymentManager": "buyer-harness-manager-2a552258",
+          "paymentConnector": "buyer-harness-connector-2a552258",
+          "credentialProvider": "buyer-harness-cred-2a552258"
         },
-        "walletNetwork": "ETHEREUM"
+        "walletNetwork": "ETHEREUM",
+        "credentialsNeeded": "CDP_API_KEY_ID / CDP_API_KEY_SECRET / CDP_WALLET_SECRET"
       }
     },
     {
-      "step": "1. CreatePaymentCredentialProvider",
+      "step": "0. CreatePaymentCredentialProvider（鍵を預ける）",
       "status": "planned",
       "detail": {}
     },
     {
-      "step": "2. CreatePaymentManager → GetPaymentManager が READY になるまで待つ",
+      "step": "1. CreatePaymentManager → READY を待つ",
       "status": "planned",
       "detail": {}
     },
     {
-      "step": "3. CreatePaymentConnector → READY（PENDING_AUTHENTICATION なら authorizationUrl を人間が開く）",
+      "step": "2. CreatePaymentConnector（MANUAL）→ READY を待つ",
       "status": "planned",
       "detail": {}
     },
     {
-      "step": "4. CreatePaymentInstrument → redirectUrl を人間が開いて入金",
+      "step": "3. CreatePaymentInstrument → redirectUrl を人間が開いて署名許可＋入金",
       "status": "planned",
       "detail": {}
     },
     {
-      "step": "5. GetPaymentInstrument が ACTIVE になるまで待つ",
+      "step": "4. GetPaymentInstrument が ACTIVE になるまで待つ",
       "status": "planned",
       "detail": {}
     },
     {
-      "step": "6. GetPaymentInstrumentBalance で原資を確認",
+      "step": "5. GetPaymentInstrumentBalance で原資を確認",
       "status": "planned",
       "detail": {}
     }
