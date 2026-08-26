@@ -1,70 +1,16 @@
 {
-  "generatedAt": "2026-08-26T14:43:00.705Z",
+  "generatedAt": "2026-08-26T17:23:03.677Z",
   "dryRun": true,
-  "mode": "manual",
-  "plan": {
-    "mode": "manual",
-    "region": "us-east-1",
-    "vendor": "CoinbaseCDP",
-    "roleArn": "<AGENTCORE_ROLE_ARN>",
-    "userEmail": "<PAYMENT_USER_EMAIL>",
-    "names": {
-      "paymentManager": "buyer-harness-manager-2a552258",
-      "paymentConnector": "buyer-harness-connector-2a552258",
-      "credentialProvider": "buyer-harness-cred-2a552258"
-    },
-    "walletNetwork": "ETHEREUM",
-    "credentialsNeeded": "CDP_API_KEY_ID / CDP_API_KEY_SECRET / CDP_WALLET_SECRET"
-  },
+  "mode": "quick-create",
   "steps": [
     {
-      "step": "dry-run",
-      "status": "planned",
+      "step": "provision",
+      "status": "failed",
       "detail": {
-        "mode": "manual",
-        "region": "us-east-1",
-        "vendor": "CoinbaseCDP",
-        "roleArn": "<AGENTCORE_ROLE_ARN>",
-        "userEmail": "<PAYMENT_USER_EMAIL>",
-        "names": {
-          "paymentManager": "buyer-harness-manager-2a552258",
-          "paymentConnector": "buyer-harness-connector-2a552258",
-          "credentialProvider": "buyer-harness-cred-2a552258"
-        },
-        "walletNetwork": "ETHEREUM",
-        "credentialsNeeded": "CDP_API_KEY_ID / CDP_API_KEY_SECRET / CDP_WALLET_SECRET"
+        "error": "Stripe Privy は Quick Create 非対応。--mode=manual を使う"
       }
-    },
-    {
-      "step": "0. CreatePaymentCredentialProvider（鍵を預ける）",
-      "status": "planned",
-      "detail": {}
-    },
-    {
-      "step": "1. CreatePaymentManager → READY を待つ",
-      "status": "planned",
-      "detail": {}
-    },
-    {
-      "step": "2. CreatePaymentConnector（MANUAL）→ READY を待つ",
-      "status": "planned",
-      "detail": {}
-    },
-    {
-      "step": "3. CreatePaymentInstrument → redirectUrl を人間が開いて署名許可＋入金",
-      "status": "planned",
-      "detail": {}
-    },
-    {
-      "step": "4. GetPaymentInstrument が ACTIVE になるまで待つ",
-      "status": "planned",
-      "detail": {}
-    },
-    {
-      "step": "5. GetPaymentInstrumentBalance で原資を確認",
-      "status": "planned",
-      "detail": {}
     }
   ],
-  "result": null
+  "result": null,
+  "error": "Stripe Privy は Quick Create 非対応。--mode=manual を使う"
 }

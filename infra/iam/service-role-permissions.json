@@ -1,0 +1,39 @@
+{
+  "_comment": [
+    "サービスロール（CreatePaymentManager の roleArn）に付ける権限。",
+    "manager 作成時に基本セットが自動付与され、connector 追加ごとに追記される。",
+    "ここは『足りなければ足す』ための雛形であって、全部を手で貼る前提ではない。",
+    "",
+    "出典と確度:",
+    "  - アクション名は AgentCore の API operation 名に対応する（AWS の通例）。",
+    "  - ただし IAM 側で実際に要求される粒度は本セッションで未検証。",
+    "    docs.aws.amazon.com が egress 許可外で読めていない。",
+    "  - 最初の実行で AccessDenied が出たら、そのメッセージに出るアクション名を足すのが確実。"
+  ],
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "WorkloadIdentity",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock-agentcore:CreateWorkloadIdentity",
+        "bedrock-agentcore:DeleteWorkloadIdentity",
+        "bedrock-agentcore:GetWorkloadAccessToken"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "PaymentToken",
+      "Effect": "Allow",
+      "Action": ["bedrock-agentcore:GetResourcePaymentToken"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ReadConnectorSecrets",
+      "Effect": "Allow",
+      "Action": ["secretsmanager:GetSecretValue"],
+      "Resource": "*",
+      "Condition": { "StringEquals": { "aws:ResourceAccount": "<account>" } }
+    }
+  ]
+}

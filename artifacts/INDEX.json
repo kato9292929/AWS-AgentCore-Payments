@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-26T14:44:03.003Z",
+  "generatedAt": "2026-08-26T17:27:01.516Z",
   "note": "merchant は mock-local（ローカル模擬売り手）。公開 testnet エンドポイントへの到達は 本セッションの egress ポリシーで不可。docs/T4-T5-blocked.md を参照。",
   "scenarios": [
     {

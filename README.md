@@ -79,20 +79,35 @@ AGENTCORE_PAYMENT_MANAGER_ARN=... AGENTCORE_PAYMENT_INSTRUMENT_ID=... \
 `MAX_PROCESS_PAYMENT_ATTEMPTS`（既定 1）、`MAX_RESEND_ATTEMPTS`（既定 1）、
 `AGENTCORE_X402_PAYLOAD_MODE`（`quickstart` | `requirements`、既定 `quickstart`）。
 
-## 実 AgentCore に結線する
+## 実払いまでの最小手順（Privy）
 
-資格情報とコネクタが揃ったら、プロビジョニングを 1 本走らせる。ハーネス側は無改修。
+**独自ハーネスは実払いの必須ではない。** 決済の芯（402 検出・署名・再送・上限）は
+AgentCore と統合プラグインが持つので、ここでやるのは provision と入金だけ。
+手順の全文と当日の注意は [`docs/T4-T5-blocked.md`](docs/T4-T5-blocked.md)。
 
 ```bash
-npm run provision -- --dry-run     # 手順と入力の確認だけ（資格情報なしで走る）
-npm run provision                  # Coinbase Quick Create。CDP の鍵は要らない
-npm run provision -- --mode=manual # 鍵を手で持ち込む / Stripe Privy を使う場合
+# 1) provision（Privy / MANUAL）
+npm run provision -- --mode=manual --vendor=privy --dry-run
+npm run provision -- --mode=manual --vendor=privy
+
+# 2) 返ってくる redirectUrl をブラウザで開き、署名許可と testnet USDC の入金
+#    （入金先アドレスは instrument を作るまで決まらないので、USDC は最後の工程）
+
+# 3) 払う
+pip install "bedrock-agentcore[strands-agents]"
+python examples/pay_with_strands.py <有料エンドポイントのURL>
 ```
 
-既定の Quick Create では人手が2回入る。(1) connector の `authorizationUrl` を開いて
-Coinbase の OAuth 同意、(2) instrument の `redirectUrl` を開いて署名許可と
-testnet USDC の入金。**入金先アドレスは instrument を作るまで決まらない**ので、
-USDC は事前に用意するものではなく最後の工程。
+Coinbase を使う場合は `--vendor=coinbase`、OAuth 同意で鍵の発行を省くなら
+`npm run provision`（Quick Create、Coinbase 専用）。
+**`--mode=manual` にしても vendor が Coinbase なら CDP アカウントは要る。**
+Coinbase 依存から外れるのは vendor=privy だけ。
+
+> **testnet に留める保証**は、プラグイン構成では
+> `network_preferences_config=["eip155:84532"]` の1行だけになる。
+> 既定（`None`）は SDK 内蔵の mainnet 先頭リストにフォールバックする
+> （実測: Base mainnet が 3 番目、Base Sepolia が 18 番目）。
+> `examples/pay_with_strands.py` では明示済み。
 
 出力の ARN / ID を env に入れて `--backend=agentcore --allow-live` で回す。
 必要なもの一覧とライブ1回目で決着させる項目は `docs/T4-T5-blocked.md`。
@@ -117,7 +132,9 @@ src/backends/localSigner.ts 代替。EIP-712/EIP-3009 を実際に署名する�
 src/rails/x402.ts       x402 v1 + HTTP transport
 src/rails/mpp.ts        MPP draft-httpauth-payment-00 + evm/charge
 mock/server.ts          模擬売り手 + facilitator（署名検証は本物、決済はしない）
-scripts/provision-agentcore.mts  AgentCore のプロビジョニング6段（--dry-run あり）
+scripts/provision-agentcore.mts  AgentCore のプロビジョニング（--dry-run / --mode / --vendor）
+examples/pay_with_strands.py     Strands プラグインで払う最小結線（実払いはこちらが本線）
+infra/iam/              サービスロールの信頼ポリシーと権限の雛形
 docs/                   T1 の一次確認、未達の理由、図、6軸比較、記事差し替えメモ
 artifacts/              採取ログ（events.jsonl / summary.json / INDEX.json）
 ```

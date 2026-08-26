@@ -1,0 +1,23 @@
+{
+  "_comment": [
+    "AgentCore payments のサービスロールの信頼ポリシー。",
+    "CreatePaymentManager の roleArn に渡すロールに付ける。",
+    "<account> と <region> と <manager-name> を実際の値に置換すること。",
+    "aws:SourceArn は manager 名の前方一致で絞る（作成時に suffix が付くため ArnLike）。"
+  ],
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AgentCorePaymentsAssume",
+      "Effect": "Allow",
+      "Principal": { "Service": "bedrock-agentcore.amazonaws.com" },
+      "Action": "sts:AssumeRole",
+      "Condition": {
+        "StringEquals": { "aws:SourceAccount": "<account>" },
+        "ArnLike": {
+          "aws:SourceArn": "arn:aws:bedrock-agentcore:<region>:<account>:payment-manager/<manager-name>-*"
+        }
+      }
+    }
+  ]
+}

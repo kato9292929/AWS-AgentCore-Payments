@@ -1,0 +1,66 @@
+{
+  "_comment": [
+    "プロビジョニングと支払いを叩く実行主体（あなたの資格情報）に必要な権限。",
+    "アクション名は scripts/provision-agentcore.mts と src/backends/agentcore.ts が",
+    "実際に送っている API operation から起こしてある（推測ではなくコード由来）。",
+    "",
+    "未検証な点: IAM のサービスプレフィックスがコントロールプレーンとデータプレーンで",
+    "同一（bedrock-agentcore:）かどうか。docs が読めないため確認できていない。",
+    "AccessDenied のメッセージに出るアクション名が正解なので、それで補正すること。"
+  ],
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ProvisionControlPlane",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock-agentcore:CreatePaymentCredentialProvider",
+        "bedrock-agentcore:GetPaymentCredentialProvider",
+        "bedrock-agentcore:CreatePaymentManager",
+        "bedrock-agentcore:GetPaymentManager",
+        "bedrock-agentcore:ListPaymentManagers",
+        "bedrock-agentcore:CreatePaymentConnector",
+        "bedrock-agentcore:GetPaymentConnector",
+        "bedrock-agentcore:ListPaymentConnectors"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ProvisionDataPlane",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock-agentcore:CreatePaymentInstrument",
+        "bedrock-agentcore:GetPaymentInstrument",
+        "bedrock-agentcore:ListPaymentInstruments",
+        "bedrock-agentcore:GetPaymentInstrumentBalance"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "PayAtRuntime",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock-agentcore:CreatePaymentSession",
+        "bedrock-agentcore:GetPaymentSession",
+        "bedrock-agentcore:DeletePaymentSession",
+        "bedrock-agentcore:ProcessPayment"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "PassServiceRole",
+      "Effect": "Allow",
+      "Action": ["iam:PassRole"],
+      "Resource": "arn:aws:iam::<account>:role/<service-role>",
+      "Condition": {
+        "StringEquals": { "iam:PassedToService": "bedrock-agentcore.amazonaws.com" }
+      }
+    },
+    {
+      "Sid": "StoreConnectorSecrets",
+      "Effect": "Allow",
+      "Action": ["secretsmanager:CreateSecret", "secretsmanager:TagResource"],
+      "Resource": "*"
+    }
+  ]
+}

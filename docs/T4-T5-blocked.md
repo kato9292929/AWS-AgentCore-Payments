@@ -66,6 +66,153 @@ provisioning ができない。paymentManagerArn が無ければ `ProcessPayment
 採取ログの receipt には `proofSource` と `merchant` が必ず入るので、
 **後からこのログを見た人が実払いと取り違えることはない。**
 
+## 実払いまでの最小手順（Privy / MANUAL）
+
+2026-08-26 に方針を変更。**独自ハーネスは実払いの必須ではない**ので、
+決済の芯（402 検出・署名・再送・上限）は AgentCore と統合プラグインに任せる。
+ここでやるのは provision と入金だけ。
+
+Coinbase ではなく Privy を使う理由: 日本から Coinbase の利用可否が不確実なため。
+Quick Create は Coinbase 専用なので使わない。**`--mode=manual` に落としても
+vendor が CoinbaseCDP なら CDP アカウントは要る**（鍵を手で持つか OAuth で委ねるかの差でしかない）。
+Coinbase 依存から本当に外れるのは vendor=StripePrivy だけ。
+
+### 0. 揃えるもの
+
+| # | もの | 備考 |
+|---|---|---|
+| 1 | AWS 資格情報 ＋ IAM サービスロール | 雛形は `infra/iam/`。リージョンは `us-east-1` / `us-west-2` / `eu-central-1` / `ap-southeast-2` のいずれか（東京は無い） |
+| 2 | Privy の4値 | `PRIVY_APP_ID` / `PRIVY_APP_SECRET` / `PRIVY_AUTHORIZATION_ID` / `PRIVY_AUTHORIZATION_PRIVATE_KEY`。日本での登録可否は docs に記載が無く、サインアップ時に確認するしかない |
+| 3 | egress 許可 | 下記。売り手ホストは使うものだけ足す |
+| 4 | testnet USDC | **独立準備ではない。** 手順2で返る `redirectUrl` から入金する |
+
+egress（同一リージョンで揃える。ワイルドカード不可）:
+
+```
+bedrock-agentcore.<region>.amazonaws.com
+bedrock-agentcore-control.<region>.amazonaws.com
+sts.amazonaws.com
+secretsmanager.<region>.amazonaws.com
+<実際に叩く売り手ホスト>
+```
+
+`redirectUrl`（入金画面）は人間がブラウザで開くので、Privy 側のホストを egress に足す必要はない。
+
+### 1. env
+
+```bash
+export AWS_REGION=<region>
+export AGENTCORE_ROLE_ARN=arn:aws:iam::<acct>:role/<service-role>
+export PAYMENT_USER_EMAIL=you@example.com
+# Privy の4値（行頭スペース＋ HISTCONTROL=ignorespace で履歴に残さない）
+ export PRIVY_APP_ID=...
+ export PRIVY_APP_SECRET=...
+ export PRIVY_AUTHORIZATION_ID=...
+ export PRIVY_AUTHORIZATION_PRIVATE_KEY=...
+```
+
+### 2. provision
+
+```bash
+npm run provision -- --mode=manual --vendor=privy --dry-run   # 入力と手順の確認
+npm run provision -- --mode=manual --vendor=privy             # 本番
+```
+
+内部でやること:
+
+```
+0 CreatePaymentCredentialProvider   StripePrivy の4値を預ける
+1 CreatePaymentManager              READY を待つ
+2 CreatePaymentConnector            StripePrivy / MANUAL、READY を待つ
+3 CreatePaymentInstrument           network=ETHEREUM。redirectUrl が返る
+4 （待機）                           instrument が ACTIVE になるまで
+5 GetPaymentInstrumentBalance       原資の確認
+6 CreatePaymentSession              maxSpendAmount と有効期限で区切る
+```
+
+出力 `artifacts/provision-output.json` に manager ARN / connector ID / instrument ID /
+session ID が入る。**資格情報は出力にもログにも出さない。**
+
+セッション上限は `SESSION_MAX_USD`（既定 $0.20）と `SESSION_EXPIRY_MINUTES`（既定 15、API 制約 15〜480）。
+期限が切れたら `CreatePaymentSession` をやり直せばよく、provision 全体の再実行は要らない。
+
+### 3. 入金（人手・1回）
+
+手順2で返る `redirectUrl` をブラウザで開き、**署名許可の付与**と
+**testnet USDC の入金**を両方やる。instrument が `ACTIVE` になるまでスクリプトが待つ。
+
+- Base Sepolia の USDC: `0x036CbD53842c5426634e7929541eC2318f3dCF7e`
+
+### 4. 払う
+
+```bash
+pip install "bedrock-agentcore[strands-agents]"
+python examples/pay_with_strands.py <有料エンドポイントのURL>
+```
+
+`examples/pay_with_strands.py` が最小の結線。402 が返るとプラグインが
+`ProcessPayment` → 支払いヘッダ付きで再送する。
+
+#### testnet に留める保証はこの1行だけになった（重要）
+
+独自ハーネスの allowlist ガード（`assertTestnetNetwork`）を経由しなくなるので、
+`AgentCorePaymentsPluginConfig.network_preferences_config` を**必ず明示する**。
+
+既定は `None` で、`None` のときは SDK 内蔵の `NETWORK_PREFERENCES` にフォールバックする。
+そのリストは **mainnet が先頭**。実測（`bedrock-agentcore` 1.22.0 を venv に入れて実行）:
+
+```
+先頭5件: ['solana-mainnet', 'solana:5eykt4Us…', 'solana:5eykt4Us…', 'eip155:8453', 'eip155:1']
+eip155:8453 (Base mainnet) の順位 = 3
+eip155:84532 (Base Sepolia) の順位 = 17
+→ 既定のままだと mainnet が先に選ばれる
+```
+
+売り手が mainnet と testnet の両方を提示したときに効く。
+`network_preferences_config=["eip155:84532"]` を渡すこと。
+
+#### モデルに見えるツールは 2 本ではなく 5 本になる
+
+プラグインを入れると、実測でこれらが登録される:
+
+```
+http_request / get_payment_instrument / get_payment_instrument_balance
+get_payment_session / list_payment_instruments
+```
+
+前方針の「モデルに見せるのは discover と pay の 2 つだけ」は、この構成では成立しない。
+決済の芯を借りる代わりに、露出面の設計はプラグイン側の判断に従うことになる。
+
+#### SDK 同梱 README の例には罠がある
+
+`integrations/strands/README.md` の例は `tools=[strands_tools.http_request]` を渡しつつ
+`provide_http_request` を既定（True）のままにしている。プラグインも同名のツールを
+登録するので、そのままだと Strands のツール登録で名前衝突する。
+`examples/pay_with_strands.py` では外部ツールを渡さず、プラグイン内蔵の
+`http_request` だけを使うことで回避している。
+
+### 検証済み / 未検証
+
+このセッションで**実行して**確認した:
+- `bedrock-agentcore[strands-agents]` 1.22.0 の import 経路
+- `AgentCorePaymentsPluginConfig` のフィールド名と `__post_init__` の検証通過
+- `AgentCorePaymentsPlugin(config=...)` の構築と登録ツール5本
+- `NETWORK_PREFERENCES` の mainnet 先頭
+
+**未検証**（資格情報と egress が無いため）:
+- provision の実行そのもの
+- Privy の日本での登録可否
+- `ProcessPayment` が返す status の実値（SDK 3系は `PROOF_GENERATED` 単一、
+  GA docs は `PENDING/SUCCESS/FAILED`。Python SDK は enum を持たず生 dict を返す）
+- IAM のアクション名の粒度（`AccessDenied` のメッセージで補正する）
+
+---
+
+## 旧: 独自ハーネスで一周する場合
+
+以下は前方針（独自の2ツールハーネス）向けの記述。実払いの必須ではないが、
+per-call 上限・監査ログ・承認記録が要る段階になったら戻ってくる。
+
 ## 埋めるために必要なもの
 
 | # | 必要なもの | 用途 |

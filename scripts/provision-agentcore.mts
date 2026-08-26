@@ -29,7 +29,8 @@
  *
  *   npx tsx scripts/provision-agentcore.mts                     # quick-create（既定）
  *   npx tsx scripts/provision-agentcore.mts --dry-run           # 手順と入力だけ確認
- *   npx tsx scripts/provision-agentcore.mts --mode=manual       # 鍵を手で持ち込む
+ *   npx tsx scripts/provision-agentcore.mts --mode=manual --vendor=privy   # Stripe Privy
+ *   npx tsx scripts/provision-agentcore.mts --mode=manual --vendor=coinbase # CDP の鍵を手で持ち込む
  *
  *   manual のとき追加で必要な env:
  *     CDP:   CDP_API_KEY_ID / CDP_API_KEY_SECRET / CDP_WALLET_SECRET
@@ -38,6 +39,7 @@
 import {
   BedrockAgentCoreClient,
   CreatePaymentInstrumentCommand,
+  CreatePaymentSessionCommand,
   GetPaymentInstrumentBalanceCommand,
   GetPaymentInstrumentCommand,
 } from "@aws-sdk/client-bedrock-agentcore";
@@ -52,11 +54,14 @@ import {
 import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { atomicToUsd, loadConfig } from "../src/config.js";
 import { assertNoMainnetConfig } from "../src/guard/network.js";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 const MODE: "quick-create" | "manual" =
   process.argv.find((a) => a.startsWith("--mode="))?.slice(7) === "manual" ? "manual" : "quick-create";
+/** --vendor=privy|coinbase で明示できる。省略時は env から推測する。 */
+const VENDOR_FLAG = process.argv.find((a) => a.startsWith("--vendor="))?.slice(9)?.toLowerCase();
 const REGION = process.env["AWS_REGION"] ?? "us-east-1";
 const NAME_PREFIX = process.env["PROVISION_NAME_PREFIX"] ?? "buyer-harness";
 const OUT_PATH = resolve("artifacts", "provision-output.json");
@@ -85,11 +90,26 @@ function banner(lines: string[]): void {
   process.stdout.write(`\n${"─".repeat(72)}\n${lines.join("\n")}\n${"─".repeat(72)}\n\n`);
 }
 
-/** manual モードでどちらのベンダを使うかを env から決める。両方揃っていたら CDP を優先。 */
-function pickManualVendor(): Vendor {
-  if (process.env["CDP_API_KEY_ID"]) return "CoinbaseCDP";
+/**
+ * manual モードのベンダ解決。
+ *   1. --vendor= が最優先
+ *   2. なければ env に置かれている資格情報から推測
+ * dry-run でも同じ解決を通す。ここが実行時とズレると
+ * 「CDP の鍵を用意しろ」と誤って案内してしまう。
+ */
+function resolveManualVendor(dryRun: boolean): Vendor {
+  if (VENDOR_FLAG === "privy" || VENDOR_FLAG === "stripeprivy") return "StripePrivy";
+  if (VENDOR_FLAG === "coinbase" || VENDOR_FLAG === "coinbasecdp") return "CoinbaseCDP";
+  if (VENDOR_FLAG !== undefined) {
+    throw new Error(`--vendor=${VENDOR_FLAG} は不正。privy か coinbase を指定する`);
+  }
   if (process.env["PRIVY_APP_ID"]) return "StripePrivy";
-  throw new Error("manual モードには CDP_API_KEY_ID か PRIVY_APP_ID のどちらかが必要");
+  if (process.env["CDP_API_KEY_ID"]) return "CoinbaseCDP";
+  if (dryRun) return "StripePrivy"; // 日本からの既定路線。--vendor= で上書きできる
+  throw new Error(
+    "manual モードにはベンダの指定が必要。--vendor=privy か --vendor=coinbase、" +
+      "または PRIVY_APP_ID / CDP_API_KEY_ID のどちらかを env に置く",
+  );
 }
 
 /**
@@ -146,8 +166,11 @@ async function main(): Promise<number> {
   mkdirSync(resolve("artifacts"), { recursive: true });
 
   // quick-create は Coinbase CDP のみ。Privy は Quick Create 非対応。
-  const vendor: Vendor =
-    MODE === "quick-create" ? "CoinbaseCDP" : DRY_RUN ? "CoinbaseCDP" : pickManualVendor();
+  // quick-create は Coinbase 専用（Privy は Quick Create 非対応）
+  if (MODE === "quick-create" && (VENDOR_FLAG === "privy" || VENDOR_FLAG === "stripeprivy")) {
+    throw new Error("Stripe Privy は Quick Create 非対応。--mode=manual を使う");
+  }
+  const vendor: Vendor = MODE === "quick-create" ? "CoinbaseCDP" : resolveManualVendor(DRY_RUN);
 
   const userEmail = DRY_RUN
     ? (process.env["PAYMENT_USER_EMAIL"] ?? "<PAYMENT_USER_EMAIL>")
@@ -172,6 +195,14 @@ async function main(): Promise<number> {
     // 実際にどのチェーンで払うかは 402 の要求と ProcessPayment の payload が決める。
     // ETHEREUM を選ぶので、売り手は EVM 系（base-sepolia 等）を提示するものに揃えること。
     walletNetwork: "ETHEREUM" as const,
+    sessionLimits: (() => {
+      const c = loadConfig();
+      return {
+        maxSpendAmount: atomicToUsd(c.sessionMaxAtomic),
+        currency: "USD",
+        expiryTimeInMinutes: c.sessionExpiryMinutes,
+      };
+    })(),
     credentialsNeeded:
       MODE === "quick-create"
         ? "なし（OAuth 同意でサービスが credential provider を作る）"
@@ -190,6 +221,7 @@ async function main(): Promise<number> {
             "3. CreatePaymentInstrument → redirectUrl を人間が開いて署名許可＋入金",
             "4. GetPaymentInstrument が ACTIVE になるまで待つ",
             "5. GetPaymentInstrumentBalance で原資を確認",
+            "6. CreatePaymentSession（maxSpendAmount と有効期限で区切る）",
           ]
         : [
             "0. CreatePaymentCredentialProvider（鍵を預ける）",
@@ -198,6 +230,7 @@ async function main(): Promise<number> {
             "3. CreatePaymentInstrument → redirectUrl を人間が開いて署名許可＋入金",
             "4. GetPaymentInstrument が ACTIVE になるまで待つ",
             "5. GetPaymentInstrumentBalance で原資を確認",
+            "6. CreatePaymentSession（maxSpendAmount と有効期限で区切る）",
           ];
     for (const s of stepList) note(s, "planned", {});
     writeOutput({ dryRun: true, mode: MODE, plan, steps, result: null });
@@ -401,6 +434,30 @@ async function main(): Promise<number> {
     note("5. GetPaymentInstrumentBalance", "skipped", { error: (e as Error).message });
   }
 
+  // ---- 6. payment session（予算と有効期限で区切る） ----
+  // 上限値はハーネスと同じ src/config.ts から読む。
+  // SESSION_MAX_USD / SESSION_EXPIRY_MINUTES で変えられる。
+  const cfg = loadConfig();
+  const maxSpendUsd = atomicToUsd(cfg.sessionMaxAtomic);
+  const session = await data.send(
+    new CreatePaymentSessionCommand({
+      userId: userEmail,
+      agentName: "buyer-harness",
+      paymentManagerArn,
+      limits: { maxSpendAmount: { value: maxSpendUsd, currency: "USD" } },
+      expiryTimeInMinutes: cfg.sessionExpiryMinutes,
+      clientToken: randomUUID(),
+    }),
+  );
+  const paymentSessionId = session.paymentSession?.paymentSessionId;
+  if (!paymentSessionId) throw new Error("paymentSessionId が返らなかった");
+  note("6. CreatePaymentSession", "ok", {
+    paymentSessionId,
+    maxSpendUsd,
+    currency: "USD",
+    expiryTimeInMinutes: cfg.sessionExpiryMinutes,
+  });
+
   const result = {
     mode: MODE,
     region: REGION,
@@ -410,7 +467,9 @@ async function main(): Promise<number> {
     paymentManagerId,
     paymentConnectorId,
     paymentInstrumentId,
+    paymentSessionId,
     walletAddress,
+    sessionLimits: { maxSpendAmount: maxSpendUsd, currency: "USD", expiryTimeInMinutes: cfg.sessionExpiryMinutes },
   };
   writeOutput({ dryRun: false, mode: MODE, plan, steps, result });
 
@@ -421,9 +480,10 @@ async function main(): Promise<number> {
     `export AGENTCORE_PAYMENT_MANAGER_ARN=${paymentManagerArn}`,
     `export AGENTCORE_PAYMENT_INSTRUMENT_ID=${paymentInstrumentId}`,
     `export AGENTCORE_PAYMENT_CONNECTOR_ID=${paymentConnectorId}`,
+    `export AGENTCORE_PAYMENT_SESSION_ID=${paymentSessionId}`,
     "",
-    "npm run harness -- --label=x402-live --backend=agentcore --allow-live \\",
-    "  --endpoint=<公開売り手の URL> --rail=x402 --approve=prompt",
+    `  セッション上限: ${maxSpendUsd} USD / 有効期限 ${cfg.sessionExpiryMinutes} 分`,
+    `  期限が切れたら CreatePaymentSession をやり直す（provision 全体の再実行は不要）。`,
   ]);
   return 0;
 }
