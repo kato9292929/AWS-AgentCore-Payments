@@ -103,11 +103,12 @@ Coinbase を使う場合は `--vendor=coinbase`、OAuth 同意で鍵の発行を
 **`--mode=manual` にしても vendor が Coinbase なら CDP アカウントは要る。**
 Coinbase 依存から外れるのは vendor=privy だけ。
 
-> **testnet に留める保証**は、プラグイン構成では
-> `network_preferences_config=["eip155:84532"]` の1行だけになる。
-> 既定（`None`）は SDK 内蔵の mainnet 先頭リストにフォールバックする
-> （実測: Base mainnet が 3 番目、Base Sepolia が 18 番目）。
-> `examples/pay_with_strands.py` では明示済み。
+> **プラグイン構成に testnet 強制は無い。** `network_preferences_config` は
+> 並べ替えのヒントで、一致しなければ先頭の accept にフォールバックする（実測）。
+> しかも slug と CAIP-2 の両方を入れないと一致しない
+> （`["eip155:84532"]` だけだと Base mainnet が選ばれる）。
+> 売り手が mainnet しか出さなければ防げない。詳細と実測表は
+> [`docs/T4-T5-blocked.md`](docs/T4-T5-blocked.md)。
 
 出力の ARN / ID を env に入れて `--backend=agentcore --allow-live` で回す。
 必要なもの一覧とライブ1回目で決着させる項目は `docs/T4-T5-blocked.md`。

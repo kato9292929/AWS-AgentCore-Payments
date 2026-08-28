@@ -89,14 +89,24 @@ Coinbase 依存から本当に外れるのは vendor=StripePrivy だけ。
 egress（同一リージョンで揃える。ワイルドカード不可）:
 
 ```
-bedrock-agentcore.<region>.amazonaws.com
-bedrock-agentcore-control.<region>.amazonaws.com
-sts.amazonaws.com
-secretsmanager.<region>.amazonaws.com
-<実際に叩く売り手ホスト>
+bedrock-agentcore.<region>.amazonaws.com          # 確実（provision と支払いが叩く）
+bedrock-agentcore-control.<region>.amazonaws.com  # 確実（manager / connector 作成）
+<実際に叩く売り手ホスト>                            # 確実
+sts.amazonaws.com                                 # 条件付き（下記）
+secretsmanager.<region>.amazonaws.com             # おそらく不要（下記）
 ```
 
-`redirectUrl`（入金画面）は人間がブラウザで開くので、Privy 側のホストを egress に足す必要はない。
+`sts` と `secretsmanager` について（実測に基づく訂正）:
+
+- **`sts`**: 静的アクセスキーを env に置くなら STS は呼ばれない。
+  assume-role / SSO / IMDS で資格情報を解決する場合だけ必要。
+- **`secretsmanager`**: `scripts/` と `src/` に SecretsManager クライアントも
+  STS クライアントも存在しない（grep でヒット 0）。資格情報を保管するのは
+  サービス側がロールで行うので、**あなたのマシンからの egress は要らない**はず。
+  IAM 権限（`secretsmanager:CreateSecret`）とは別の話。
+
+以前の版で両方を「必須」と書いていたのは確認していない転記だった。
+足しても害は無いが、必須ではない。
 
 ### 1. env
 
@@ -136,12 +146,30 @@ session ID が入る。**資格情報は出力にもログにも出さない。*
 セッション上限は `SESSION_MAX_USD`（既定 $0.20）と `SESSION_EXPIRY_MINUTES`（既定 15、API 制約 15〜480）。
 期限が切れたら `CreatePaymentSession` をやり直せばよく、provision 全体の再実行は要らない。
 
-### 3. 入金（人手・1回）
+### 3. 入金（人手・1回）— **Privy では Coinbase と手順が違う可能性が高い**
 
-手順2で返る `redirectUrl` をブラウザで開き、**署名許可の付与**と
-**testnet USDC の入金**を両方やる。instrument が `ACTIVE` になるまでスクリプトが待つ。
+Python SDK の README（`payments/README.md`）にこう書いてある:
 
-- Base Sepolia の USDC: `0x036CbD53842c5426634e7929541eC2318f3dCF7e`
+> - **Coinbase**: You'll receive a `redirectUrl` in the response pointing to the
+>   Coinbase-hosted WalletHub. Redirect your user there to grant signing permission
+>   and transfer funds.
+> - **Stripe**: Developers use a provided URL template to host a frontend page where
+>   end users can take the same actions.
+
+つまり **Coinbase はホスト済みの画面が返るが、Privy は「URL テンプレートを渡すので
+開発者が自分でフロントを立てろ」**と読める。`CreatePaymentInstrument` の応答に
+`redirectUrl` が入るかどうかも Privy では未確認。
+
+したがって「返る redirectUrl を開いて入金」という手順は **Coinbase の流れ** であって、
+Privy でそのまま成立する保証は無い。ここは実行して確かめるしかない。
+
+やること自体は同じ2つ:
+- エージェントへの署名許可の付与
+- Base Sepolia の testnet USDC の入金（`0x036CbD53842c5426634e7929541eC2318f3dCF7e`）
+
+`provision` は instrument が `ACTIVE` になるまで待つので、
+`redirectUrl` が返らなかった場合は Privy 側のダッシュボードなり
+テンプレート経由なりで同じ操作を行う。**そこが埋まっていない。**
 
 ### 4. 払う
 
@@ -153,23 +181,45 @@ python examples/pay_with_strands.py <有料エンドポイントのURL>
 `examples/pay_with_strands.py` が最小の結線。402 が返るとプラグインが
 `ProcessPayment` → 支払いヘッダ付きで再送する。
 
-#### testnet に留める保証はこの1行だけになった（重要）
+#### testnet 強制は存在しない（前の版の記述は誤り）
 
-独自ハーネスの allowlist ガード（`assertTestnetNetwork`）を経由しなくなるので、
-`AgentCorePaymentsPluginConfig.network_preferences_config` を**必ず明示する**。
+以前ここに「`network_preferences_config` を明示すれば testnet に留まる」と書いた。
+**誤りだった。** これは並べ替えのヒントであって制限ではない。
 
-既定は `None` で、`None` のときは SDK 内蔵の `NETWORK_PREFERENCES` にフォールバックする。
-そのリストは **mainnet が先頭**。実測（`bedrock-agentcore` 1.22.0 を venv に入れて実行）:
+`manager._select_accept_for_instrument_network()` の実装:
 
 ```
-先頭5件: ['solana-mainnet', 'solana:5eykt4Us…', 'solana:5eykt4Us…', 'eip155:8453', 'eip155:1']
-eip155:8453 (Base mainnet) の順位 = 3
-eip155:84532 (Base Sepolia) の順位 = 17
-→ 既定のままだと mainnet が先に選ばれる
+Step 1: instrument のチェーン族で accepts を絞る
+        → _ETHEREUM_NETWORKS には mainnet も testnet も両方入っている（mainnet は落ちない）
+Step 2: network_preferences（未指定なら NETWORK_PREFERENCES）
+Step 3: preferences の順に一致する accept を返す
+Step 4: 一致しなければ filtered_accepts[0] を返す   ← 穴
 ```
 
-売り手が mainnet と testnet の両方を提示したときに効く。
-`network_preferences_config=["eip155:84532"]` を渡すこと。
+実測（`bedrock-agentcore` 1.22.0 を venv に入れて直接呼んだ）。
+売り手が `[Base mainnet, base-sepolia]` の順で提示した 402 に対して:
+
+| 渡した preferences | 選ばれた network |
+|---|---|
+| 既定（`None`） | `eip155:8453`（Base **mainnet**） |
+| `["eip155:84532"]` | `eip155:8453`（Base **mainnet**）← 効かない |
+| `["base-sepolia", "eip155:84532"]` | `base-sepolia` ← 効く |
+| 売り手が mainnet のみ提示 | `eip155:8453`（**防げない**） |
+
+2 行目が効かないのは、x402 の 402 が network を slug（`"base-sepolia"`）で返すのに
+CAIP-2 表記だけを渡すと文字列比較が一致せず、Step 4 に落ちるため。
+**slug と CAIP-2 の両方を入れること。**
+
+4 行目が本質的な限界。**売り手が mainnet しか出さなければ mainnet で払う。**
+実マネーを防ぐのは設定ではなく次の2つになる:
+
+1. 叩く先を testnet 専用の売り手に限定する（URL を人間が選ぶ）
+2. ウォレットに testnet USDC しか入れない（mainnet 残高ゼロなら決済が失敗する。
+   「拒否」ではなく「失敗」なので防御としては弱い）
+
+それ以上の拘束が要るなら `auto_payment=False` にして 402 を自前で検査する、
+つまり `src/guard/network.ts`（allowlist・deny by default）に戻ることになる。
+**独自ハーネスを外すと消えるのはこの保証**、というのが今回はっきりした点。
 
 #### モデルに見えるツールは 2 本ではなく 5 本になる
 
