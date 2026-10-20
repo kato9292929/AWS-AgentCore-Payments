@@ -1,0 +1,42 @@
+{
+  "case": "D7",
+  "question": "MPP: feePayer=false で buyerPaysGasFees を渡さない: ValidationException になるか",
+  "executed": false,
+  "startedAt": "2026-10-20T06:12:44.872Z",
+  "region": "us-east-1",
+  "seller": [
+    "http://127.0.0.1:8402/mpp/no-sponsor",
+    "http://127.0.0.1:8402/mpp/sponsored"
+  ],
+  "calls": [],
+  "findings": {},
+  "reason": "資格情報／provision の出力が無い: AGENTCORE_PAYMENT_MANAGER_ARN, AGENTCORE_PAYMENT_INSTRUMENT_ID, PAYMENT_USER_EMAIL",
+  "plannedInputs": [
+    {
+      "seller": "/mpp/no-sponsor",
+      "http_status": 402,
+      "paymentType": "MPP",
+      "paymentInput": {
+        "mpp": {
+          "version": "1",
+          "wwwAuthenticateHeaders": [
+            "Payment id=\"n70N7_k9IDzniTOEA2JIKlEPnYbPNwT9Jj6pYPypoLU\", realm=\"127.0.0.1:8402\", method=\"evm\", intent=\"charge\", expires=\"2026-10-20T06:17:44Z\", request=\"eyJhbW91bnQiOiIyMDAwMCIsImN1cnJlbmN5IjoiMHgwMzZDYkQ1Mzg0MmM1NDI2NjM0ZTc5Mjk1NDFlQzIzMThmM2RDRjdlIiwiZGVzY3JpcHRpb24iOiJmZWVQYXllcj1mYWxzZSDjga4gTVBQIOODgeODo-ODrOODs-OCuO-8iEFDLTEgRDfvvIkiLCJtZXRob2REZXRhaWxzIjp7ImNoYWluSWQiOjg0NTMyLCJjcmVkZW50aWFsVHlwZXMiOlsiYXV0aG9yaXphdGlvbiJdLCJkZWNpbWFscyI6NiwiZmVlUGF5ZXIiOmZhbHNlfSwicmVjaXBpZW50IjoiMHgyMDk2OTNCYzZhZmMwQzUzMjhiQTM2RmFGMDNDNTE0RUYzMTIyODdDIn0\""
+          ]
+        }
+      }
+    },
+    {
+      "seller": "/mpp/sponsored",
+      "http_status": 402,
+      "paymentType": "MPP",
+      "paymentInput": {
+        "mpp": {
+          "version": "1",
+          "wwwAuthenticateHeaders": [
+            "Payment id=\"HElnRrE_VYIHfYY3IqfkYGiD-LJMvOLmS6Y-0sem1jc\", realm=\"127.0.0.1:8402\", method=\"evm\", intent=\"charge\", expires=\"2026-10-20T06:17:44Z\", request=\"eyJhbW91bnQiOiIyMDAwMCIsImN1cnJlbmN5IjoiMHgwMzZDYkQ1Mzg0MmM1NDI2NjM0ZTc5Mjk1NDFlQzIzMThmM2RDRjdlIiwiZGVzY3JpcHRpb24iOiJmZWVQYXllcj10cnVlIOOBriBNUFAg44OB44Oj44Os44Oz44K477yIQUMtMSBENyDjga7lr77nhafvvIkiLCJtZXRob2REZXRhaWxzIjp7ImNoYWluSWQiOjg0NTMyLCJjcmVkZW50aWFsVHlwZXMiOlsiYXV0aG9yaXphdGlvbiJdLCJkZWNpbWFscyI6NiwiZmVlUGF5ZXIiOnRydWV9LCJyZWNpcGllbnQiOiIweDIwOTY5M0JjNmFmYzBDNTMyOGJBMzZGYUYwM0M1MTRFRjMxMjI4N0MifQ\""
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "runId": "payto-not-allowlisted",
+  "label": "payto-not-allowlisted",
+  "config": {
+    "region": "us-east-1",
+    "chain": "BASE_SEPOLIA",
+    "facilitator": "https://x402.org/facilitator",
+    "testnet": true,
+    "per_call_max_usd": "0.050000",
+    "session_max_usd": "0.200000",
+    "auto_approve": false
+  },
+  "backend": "local-signer",
+  "planner": "scripted",
+  "tools_exposed_to_model": [
+    "discover",
+    "pay"
+  ],
+  "steps": 3,
+  "results": [
+    {
+      "status": "declined",
+      "reason": "payto_not_allowlisted",
+      "detail": {
+        "payTo": "0x000000000000000000000000000000000000dEaD",
+        "network": "base-sepolia"
+      }
+    }
+  ],
+  "limits": {
+    "spent_usd": "0.000000",
+    "reserved_usd": "0.000000",
+    "remaining_usd": "0.200000",
+    "per_call_max_usd": "0.050000",
+    "session_max_usd": "0.200000",
+    "guards": "both"
+  },
+  "approval_grants": [],
+  "duplicate_guard": {
+    "max_process_payment_attempts": 1,
+    "max_resend_attempts": 1,
+    "tracked_demands": 0,
+    "settled_fingerprints": 0
+  }
+}

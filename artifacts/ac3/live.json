@@ -1,0 +1,5 @@
+{
+  "mode": "live",
+  "executed": false,
+  "reason": "資格情報／provision の出力が無い: AGENTCORE_PAYMENT_MANAGER_ARN / AGENTCORE_PAYMENT_INSTRUMENT_ID / PAYMENT_USER_EMAIL"
+}

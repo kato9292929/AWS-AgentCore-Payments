@@ -1,0 +1,476 @@
+{
+  "runId": "harness-local-run",
+  "label": "ac3-harness-local-run",
+  "config": {
+    "region": "us-east-1",
+    "chain": "BASE_SEPOLIA",
+    "facilitator": "https://x402.org/facilitator",
+    "testnet": true,
+    "per_call_max_usd": "0.050000",
+    "session_max_usd": "0.200000",
+    "auto_approve": false
+  },
+  "backend": "local-signer",
+  "planner": "scripted",
+  "tools_exposed_to_model": [
+    "discover",
+    "pay"
+  ],
+  "steps": 22,
+  "results": [
+    {
+      "status": "success",
+      "receipt": {
+        "reference": "0xa147b80ebb547467933203bfd4e8f19354f23248ee977502bc914105a4f606cd",
+        "amount": "50000",
+        "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "network": "eip155:84532",
+        "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+        "rail": "x402",
+        "scheme": "upto",
+        "settledAmount": "10000",
+        "timestamp": "2026-10-20T06:14:53.394Z",
+        "proofSource": "local-signer",
+        "paymentStatus": "PROOF_GENERATED",
+        "settlementConfirmedBy": "merchant-receipt",
+        "testnet": true,
+        "merchant": "mock-local",
+        "approval": {
+          "approver": "root@local",
+          "at": "2026-10-20T06:14:53.330Z",
+          "scope": "http://127.0.0.1:8413 まで 0.050000 USD/回（今セッション内）"
+        }
+      }
+    },
+    {
+      "status": "success",
+      "receipt": {
+        "reference": "0xd18c74f46d46fe3efb1d7cd320c98ff399bce9b1274067312655d6ff09486615",
+        "amount": "50000",
+        "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "network": "eip155:84532",
+        "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+        "rail": "x402",
+        "scheme": "upto",
+        "settledAmount": "10000",
+        "timestamp": "2026-10-20T06:14:53.409Z",
+        "proofSource": "local-signer",
+        "paymentStatus": "PROOF_GENERATED",
+        "settlementConfirmedBy": "merchant-receipt",
+        "testnet": true,
+        "merchant": "mock-local",
+        "approval": {
+          "approver": "root@local",
+          "at": "2026-10-20T06:14:53.330Z",
+          "scope": "http://127.0.0.1:8413 まで 0.050000 USD/回（今セッション内）"
+        }
+      }
+    },
+    {
+      "status": "success",
+      "receipt": {
+        "reference": "0x39f140c34d8a3595d8e5160d36fba5889d82c32c93db94acdeb2c4414c509a00",
+        "amount": "50000",
+        "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "network": "eip155:84532",
+        "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+        "rail": "x402",
+        "scheme": "upto",
+        "settledAmount": "10000",
+        "timestamp": "2026-10-20T06:14:53.424Z",
+        "proofSource": "local-signer",
+        "paymentStatus": "PROOF_GENERATED",
+        "settlementConfirmedBy": "merchant-receipt",
+        "testnet": true,
+        "merchant": "mock-local",
+        "approval": {
+          "approver": "root@local",
+          "at": "2026-10-20T06:14:53.330Z",
+          "scope": "http://127.0.0.1:8413 まで 0.050000 USD/回（今セッション内）"
+        }
+      }
+    },
+    {
+      "status": "success",
+      "receipt": {
+        "reference": "0x0a0f9d979438d25dc52896fa7990f04fbd893b014444a5b2f8a6178fcda67163",
+        "amount": "50000",
+        "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "network": "eip155:84532",
+        "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+        "rail": "x402",
+        "scheme": "upto",
+        "settledAmount": "10000",
+        "timestamp": "2026-10-20T06:14:53.441Z",
+        "proofSource": "local-signer",
+        "paymentStatus": "PROOF_GENERATED",
+        "settlementConfirmedBy": "merchant-receipt",
+        "testnet": true,
+        "merchant": "mock-local",
+        "approval": {
+          "approver": "root@local",
+          "at": "2026-10-20T06:14:53.330Z",
+          "scope": "http://127.0.0.1:8413 まで 0.050000 USD/回（今セッション内）"
+        }
+      }
+    },
+    {
+      "status": "success",
+      "receipt": {
+        "reference": "0x44168f0a8ac18d1d45557c658d70ee7d7ef51571e619f33ac04d92cf61f5737a",
+        "amount": "50000",
+        "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "network": "eip155:84532",
+        "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+        "rail": "x402",
+        "scheme": "upto",
+        "settledAmount": "10000",
+        "timestamp": "2026-10-20T06:14:53.460Z",
+        "proofSource": "local-signer",
+        "paymentStatus": "PROOF_GENERATED",
+        "settlementConfirmedBy": "merchant-receipt",
+        "testnet": true,
+        "merchant": "mock-local",
+        "approval": {
+          "approver": "root@local",
+          "at": "2026-10-20T06:14:53.330Z",
+          "scope": "http://127.0.0.1:8413 まで 0.050000 USD/回（今セッション内）"
+        }
+      }
+    },
+    {
+      "status": "success",
+      "receipt": {
+        "reference": "0x9d1399c0ab0a9908a6fb49f80fe114b18d23291e3688d04e461987489ba95fa2",
+        "amount": "50000",
+        "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "network": "eip155:84532",
+        "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+        "rail": "x402",
+        "scheme": "upto",
+        "settledAmount": "10000",
+        "timestamp": "2026-10-20T06:14:53.474Z",
+        "proofSource": "local-signer",
+        "paymentStatus": "PROOF_GENERATED",
+        "settlementConfirmedBy": "merchant-receipt",
+        "testnet": true,
+        "merchant": "mock-local",
+        "approval": {
+          "approver": "root@local",
+          "at": "2026-10-20T06:14:53.330Z",
+          "scope": "http://127.0.0.1:8413 まで 0.050000 USD/回（今セッション内）"
+        }
+      }
+    },
+    {
+      "status": "success",
+      "receipt": {
+        "reference": "0x015e960fac6ed4860b8e68e8aabb7aa60551e4fc0b148ce1bf1c6e2627718e07",
+        "amount": "50000",
+        "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "network": "eip155:84532",
+        "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+        "rail": "x402",
+        "scheme": "upto",
+        "settledAmount": "10000",
+        "timestamp": "2026-10-20T06:14:53.488Z",
+        "proofSource": "local-signer",
+        "paymentStatus": "PROOF_GENERATED",
+        "settlementConfirmedBy": "merchant-receipt",
+        "testnet": true,
+        "merchant": "mock-local",
+        "approval": {
+          "approver": "root@local",
+          "at": "2026-10-20T06:14:53.330Z",
+          "scope": "http://127.0.0.1:8413 まで 0.050000 USD/回（今セッション内）"
+        }
+      }
+    },
+    {
+      "status": "success",
+      "receipt": {
+        "reference": "0xf33bfc743668ba83df07e9d90ef1e90d318e09acebb127fb20cdfc05718b4ccf",
+        "amount": "50000",
+        "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "network": "eip155:84532",
+        "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+        "rail": "x402",
+        "scheme": "upto",
+        "settledAmount": "10000",
+        "timestamp": "2026-10-20T06:14:53.498Z",
+        "proofSource": "local-signer",
+        "paymentStatus": "PROOF_GENERATED",
+        "settlementConfirmedBy": "merchant-receipt",
+        "testnet": true,
+        "merchant": "mock-local",
+        "approval": {
+          "approver": "root@local",
+          "at": "2026-10-20T06:14:53.330Z",
+          "scope": "http://127.0.0.1:8413 まで 0.050000 USD/回（今セッション内）"
+        }
+      }
+    },
+    {
+      "status": "success",
+      "receipt": {
+        "reference": "0x995b2fa897a5bf94ab083b89b528b384948831566d100985a3f8a962caabffd9",
+        "amount": "50000",
+        "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "network": "eip155:84532",
+        "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+        "rail": "x402",
+        "scheme": "upto",
+        "settledAmount": "10000",
+        "timestamp": "2026-10-20T06:14:53.509Z",
+        "proofSource": "local-signer",
+        "paymentStatus": "PROOF_GENERATED",
+        "settlementConfirmedBy": "merchant-receipt",
+        "testnet": true,
+        "merchant": "mock-local",
+        "approval": {
+          "approver": "root@local",
+          "at": "2026-10-20T06:14:53.330Z",
+          "scope": "http://127.0.0.1:8413 まで 0.050000 USD/回（今セッション内）"
+        }
+      }
+    },
+    {
+      "status": "success",
+      "receipt": {
+        "reference": "0xadbdbabf81a96cae74402ce9859f70b559d102330221703e06617aa57a54eda5",
+        "amount": "50000",
+        "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "network": "eip155:84532",
+        "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+        "rail": "x402",
+        "scheme": "upto",
+        "settledAmount": "10000",
+        "timestamp": "2026-10-20T06:14:53.521Z",
+        "proofSource": "local-signer",
+        "paymentStatus": "PROOF_GENERATED",
+        "settlementConfirmedBy": "merchant-receipt",
+        "testnet": true,
+        "merchant": "mock-local",
+        "approval": {
+          "approver": "root@local",
+          "at": "2026-10-20T06:14:53.330Z",
+          "scope": "http://127.0.0.1:8413 まで 0.050000 USD/回（今セッション内）"
+        }
+      }
+    },
+    {
+      "status": "success",
+      "receipt": {
+        "reference": "0x3b32cfa8ea11f6693041e2593654daa2ffebcbd79d4d068a5b756476158e5d3b",
+        "amount": "50000",
+        "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "network": "eip155:84532",
+        "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+        "rail": "x402",
+        "scheme": "upto",
+        "settledAmount": "10000",
+        "timestamp": "2026-10-20T06:14:53.532Z",
+        "proofSource": "local-signer",
+        "paymentStatus": "PROOF_GENERATED",
+        "settlementConfirmedBy": "merchant-receipt",
+        "testnet": true,
+        "merchant": "mock-local",
+        "approval": {
+          "approver": "root@local",
+          "at": "2026-10-20T06:14:53.330Z",
+          "scope": "http://127.0.0.1:8413 まで 0.050000 USD/回（今セッション内）"
+        }
+      }
+    },
+    {
+      "status": "success",
+      "receipt": {
+        "reference": "0x4e9ce88ec1089e2769f65d24a39a4a0338375c1a2c58424255c50147180cccdb",
+        "amount": "50000",
+        "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "network": "eip155:84532",
+        "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+        "rail": "x402",
+        "scheme": "upto",
+        "settledAmount": "10000",
+        "timestamp": "2026-10-20T06:14:53.544Z",
+        "proofSource": "local-signer",
+        "paymentStatus": "PROOF_GENERATED",
+        "settlementConfirmedBy": "merchant-receipt",
+        "testnet": true,
+        "merchant": "mock-local",
+        "approval": {
+          "approver": "root@local",
+          "at": "2026-10-20T06:14:53.330Z",
+          "scope": "http://127.0.0.1:8413 まで 0.050000 USD/回（今セッション内）"
+        }
+      }
+    },
+    {
+      "status": "success",
+      "receipt": {
+        "reference": "0x4394d02908c62c265830dd6cb470754b08699da73a2f704f8795f0db5a60000b",
+        "amount": "50000",
+        "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "network": "eip155:84532",
+        "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+        "rail": "x402",
+        "scheme": "upto",
+        "settledAmount": "10000",
+        "timestamp": "2026-10-20T06:14:53.554Z",
+        "proofSource": "local-signer",
+        "paymentStatus": "PROOF_GENERATED",
+        "settlementConfirmedBy": "merchant-receipt",
+        "testnet": true,
+        "merchant": "mock-local",
+        "approval": {
+          "approver": "root@local",
+          "at": "2026-10-20T06:14:53.330Z",
+          "scope": "http://127.0.0.1:8413 まで 0.050000 USD/回（今セッション内）"
+        }
+      }
+    },
+    {
+      "status": "success",
+      "receipt": {
+        "reference": "0x90ac4ae623263138ceb8ff8c6ba38866d388516ee6e4f1aab638b060fd7df123",
+        "amount": "50000",
+        "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "network": "eip155:84532",
+        "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+        "rail": "x402",
+        "scheme": "upto",
+        "settledAmount": "10000",
+        "timestamp": "2026-10-20T06:14:53.562Z",
+        "proofSource": "local-signer",
+        "paymentStatus": "PROOF_GENERATED",
+        "settlementConfirmedBy": "merchant-receipt",
+        "testnet": true,
+        "merchant": "mock-local",
+        "approval": {
+          "approver": "root@local",
+          "at": "2026-10-20T06:14:53.330Z",
+          "scope": "http://127.0.0.1:8413 まで 0.050000 USD/回（今セッション内）"
+        }
+      }
+    },
+    {
+      "status": "success",
+      "receipt": {
+        "reference": "0x197dbef68d876b0f24f7a7bb0034f6f062897be0de82b3d62d6c7c168606cb25",
+        "amount": "50000",
+        "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "network": "eip155:84532",
+        "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+        "rail": "x402",
+        "scheme": "upto",
+        "settledAmount": "10000",
+        "timestamp": "2026-10-20T06:14:53.571Z",
+        "proofSource": "local-signer",
+        "paymentStatus": "PROOF_GENERATED",
+        "settlementConfirmedBy": "merchant-receipt",
+        "testnet": true,
+        "merchant": "mock-local",
+        "approval": {
+          "approver": "root@local",
+          "at": "2026-10-20T06:14:53.330Z",
+          "scope": "http://127.0.0.1:8413 まで 0.050000 USD/回（今セッション内）"
+        }
+      }
+    },
+    {
+      "status": "success",
+      "receipt": {
+        "reference": "0x37f9ce401b8507691dcbb6008340684fd01d57e82c3944a6af5a2c3424af051e",
+        "amount": "50000",
+        "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "network": "eip155:84532",
+        "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+        "rail": "x402",
+        "scheme": "upto",
+        "settledAmount": "10000",
+        "timestamp": "2026-10-20T06:14:53.579Z",
+        "proofSource": "local-signer",
+        "paymentStatus": "PROOF_GENERATED",
+        "settlementConfirmedBy": "merchant-receipt",
+        "testnet": true,
+        "merchant": "mock-local",
+        "approval": {
+          "approver": "root@local",
+          "at": "2026-10-20T06:14:53.330Z",
+          "scope": "http://127.0.0.1:8413 まで 0.050000 USD/回（今セッション内）"
+        }
+      }
+    },
+    {
+      "status": "declined",
+      "reason": "limit_exceeded",
+      "detail": {
+        "amount_usd": "0.050000",
+        "per_call_max_usd": "0.050000",
+        "session_max_usd": "0.200000",
+        "session_spent_usd": "0.160000",
+        "session_reserved_usd": "0.000000",
+        "rule": "session_max"
+      }
+    },
+    {
+      "status": "declined",
+      "reason": "limit_exceeded",
+      "detail": {
+        "amount_usd": "0.050000",
+        "per_call_max_usd": "0.050000",
+        "session_max_usd": "0.200000",
+        "session_spent_usd": "0.160000",
+        "session_reserved_usd": "0.000000",
+        "rule": "session_max"
+      }
+    },
+    {
+      "status": "declined",
+      "reason": "limit_exceeded",
+      "detail": {
+        "amount_usd": "0.050000",
+        "per_call_max_usd": "0.050000",
+        "session_max_usd": "0.200000",
+        "session_spent_usd": "0.160000",
+        "session_reserved_usd": "0.000000",
+        "rule": "session_max"
+      }
+    },
+    {
+      "status": "declined",
+      "reason": "limit_exceeded",
+      "detail": {
+        "amount_usd": "0.050000",
+        "per_call_max_usd": "0.050000",
+        "session_max_usd": "0.200000",
+        "session_spent_usd": "0.160000",
+        "session_reserved_usd": "0.000000",
+        "rule": "session_max"
+      }
+    }
+  ],
+  "limits": {
+    "spent_usd": "0.160000",
+    "reserved_usd": "0.000000",
+    "remaining_usd": "0.040000",
+    "per_call_max_usd": "0.050000",
+    "session_max_usd": "0.200000",
+    "guards": "both"
+  },
+  "approval_grants": [
+    {
+      "origin": "http://127.0.0.1:8413",
+      "ceiling_usd": "0.050000",
+      "approver": "root@local",
+      "at": "2026-10-20T06:14:53.330Z"
+    }
+  ],
+  "duplicate_guard": {
+    "max_process_payment_attempts": 1,
+    "max_resend_attempts": 1,
+    "tracked_demands": 16,
+    "settled_fingerprints": 1
+  }
+}

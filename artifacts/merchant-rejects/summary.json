@@ -25,16 +25,18 @@
   ],
   "limits": {
     "spent_usd": "0.000000",
+    "reserved_usd": "0.000000",
     "remaining_usd": "0.200000",
     "per_call_max_usd": "0.050000",
-    "session_max_usd": "0.200000"
+    "session_max_usd": "0.200000",
+    "guards": "both"
   },
   "approval_grants": [
     {
       "origin": "http://127.0.0.1:8402",
       "ceiling_usd": "0.010000",
-      "approver": "hello@x402jp.com",
-      "at": "2026-08-26T17:27:00.033Z"
+      "approver": "harness-operator",
+      "at": "2026-10-20T06:12:27.867Z"
     }
   ],
   "duplicate_guard": {

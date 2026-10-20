@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-26T17:27:01.516Z",
-  "note": "merchant は mock-local（ローカル模擬売り手）。公開 testnet エンドポイントへの到達は 本セッションの egress ポリシーで不可。docs/T4-T5-blocked.md を参照。",
+  "generatedAt": "2026-10-20T06:12:35.362Z",
+  "note": "merchant は mock-local（ローカル模擬売り手）。公開 testnet 売り手（x402.org）への egress は 2026-10-20 時点で開いているが、AgentCore の資格情報が無いため実払いは未実施。docs/T4-T5-blocked.md と docs/AC2-results.md を参照。",
   "scenarios": [
     {
       "label": "x402-success",
@@ -23,7 +23,10 @@
         "limit_rule": null,
         "process_payment_called": true,
         "approval_scope_recorded": true,
-        "resend_rejected": false
+        "resend_rejected": false,
+        "payto_decision": "allowed",
+        "upto_settled": false,
+        "harness_limit_enforced": true
       }
     },
     {
@@ -47,7 +50,10 @@
         "limit_rule": null,
         "process_payment_called": true,
         "approval_scope_recorded": true,
-        "resend_rejected": false
+        "resend_rejected": false,
+        "payto_decision": "allowed",
+        "upto_settled": false,
+        "harness_limit_enforced": true
       }
     },
     {
@@ -71,7 +77,10 @@
         "limit_rule": "per_call_max",
         "process_payment_called": false,
         "approval_scope_recorded": false,
-        "resend_rejected": false
+        "resend_rejected": false,
+        "payto_decision": "allowed",
+        "upto_settled": false,
+        "harness_limit_enforced": true
       }
     },
     {
@@ -95,7 +104,10 @@
         "limit_rule": "session_max",
         "process_payment_called": false,
         "approval_scope_recorded": false,
-        "resend_rejected": false
+        "resend_rejected": false,
+        "payto_decision": "allowed",
+        "upto_settled": false,
+        "harness_limit_enforced": true
       }
     },
     {
@@ -119,7 +131,10 @@
         "limit_rule": null,
         "process_payment_called": false,
         "approval_scope_recorded": false,
-        "resend_rejected": false
+        "resend_rejected": false,
+        "payto_decision": "allowed",
+        "upto_settled": false,
+        "harness_limit_enforced": true
       }
     },
     {
@@ -143,7 +158,10 @@
         "limit_rule": null,
         "process_payment_called": true,
         "approval_scope_recorded": true,
-        "resend_rejected": false
+        "resend_rejected": false,
+        "payto_decision": "allowed",
+        "upto_settled": false,
+        "harness_limit_enforced": true
       }
     },
     {
@@ -167,7 +185,10 @@
         "limit_rule": null,
         "process_payment_called": false,
         "approval_scope_recorded": false,
-        "resend_rejected": false
+        "resend_rejected": false,
+        "payto_decision": "allowed",
+        "upto_settled": false,
+        "harness_limit_enforced": true
       }
     },
     {
@@ -191,7 +212,10 @@
         "limit_rule": "per_call_max",
         "process_payment_called": false,
         "approval_scope_recorded": false,
-        "resend_rejected": false
+        "resend_rejected": false,
+        "payto_decision": "allowed",
+        "upto_settled": false,
+        "harness_limit_enforced": true
       }
     },
     {
@@ -215,7 +239,10 @@
         "limit_rule": null,
         "process_payment_called": true,
         "approval_scope_recorded": true,
-        "resend_rejected": false
+        "resend_rejected": false,
+        "payto_decision": "allowed",
+        "upto_settled": false,
+        "harness_limit_enforced": true
       }
     },
     {
@@ -239,7 +266,10 @@
         "limit_rule": null,
         "process_payment_called": true,
         "approval_scope_recorded": true,
-        "resend_rejected": true
+        "resend_rejected": true,
+        "payto_decision": "allowed",
+        "upto_settled": false,
+        "harness_limit_enforced": true
       }
     },
     {
@@ -263,7 +293,118 @@
         "limit_rule": null,
         "process_payment_called": false,
         "approval_scope_recorded": false,
-        "resend_rejected": false
+        "resend_rejected": false,
+        "payto_decision": null,
+        "upto_settled": false,
+        "harness_limit_enforced": null
+      }
+    },
+    {
+      "label": "x402-v2-success",
+      "purpose": "AC-2: x402 v2（PAYMENT-REQUIRED / PAYMENT-SIGNATURE / PAYMENT-RESPONSE、eip155:84532）の一周",
+      "expect": "success",
+      "runId": "x402-v2-success",
+      "status": "success",
+      "exitCode": 0,
+      "artifactsDir": "/home/user/AWS-AgentCore-Payments/artifacts/x402-v2-success",
+      "ok": true,
+      "collected": {
+        "discover_candidates": true,
+        "402_response": true,
+        "limit_decision": true,
+        "approval_record": true,
+        "retry_request_sent": true,
+        "success_200": true,
+        "receipt": true,
+        "mainnet_halt": false,
+        "limit_rule": null,
+        "process_payment_called": true,
+        "approval_scope_recorded": true,
+        "resend_rejected": false,
+        "payto_decision": "allowed",
+        "upto_settled": false,
+        "harness_limit_enforced": true
+      }
+    },
+    {
+      "label": "payto-not-allowlisted",
+      "purpose": "AC-2: allowlist に無い payTo には署名に進まない（ProcessPayment を呼ばない）",
+      "expect": "declined",
+      "runId": "payto-not-allowlisted",
+      "status": "declined",
+      "exitCode": 0,
+      "artifactsDir": "/home/user/AWS-AgentCore-Payments/artifacts/payto-not-allowlisted",
+      "ok": true,
+      "collected": {
+        "discover_candidates": true,
+        "402_response": true,
+        "limit_decision": false,
+        "approval_record": false,
+        "retry_request_sent": false,
+        "success_200": false,
+        "receipt": false,
+        "mainnet_halt": false,
+        "limit_rule": null,
+        "process_payment_called": false,
+        "approval_scope_recorded": false,
+        "resend_rejected": false,
+        "payto_decision": "payto_not_allowlisted",
+        "upto_settled": false,
+        "harness_limit_enforced": null
+      }
+    },
+    {
+      "label": "upto-reserve-settle",
+      "purpose": "AC-3a: upto は上限額($0.05)で予約し、settle の実額($0.01)で確定して差額を解放する",
+      "expect": "success",
+      "runId": "upto-reserve-settle",
+      "status": "success",
+      "exitCode": 0,
+      "artifactsDir": "/home/user/AWS-AgentCore-Payments/artifacts/upto-reserve-settle",
+      "ok": true,
+      "collected": {
+        "discover_candidates": true,
+        "402_response": true,
+        "limit_decision": true,
+        "approval_record": true,
+        "retry_request_sent": true,
+        "success_200": true,
+        "receipt": true,
+        "mainnet_halt": false,
+        "limit_rule": null,
+        "process_payment_called": true,
+        "approval_scope_recorded": true,
+        "resend_rejected": false,
+        "payto_decision": "allowed",
+        "upto_settled": true,
+        "harness_limit_enforced": true
+      }
+    },
+    {
+      "label": "agentcore-only-shadow",
+      "purpose": "AC-1: --guards=agentcore-only では自前の上限が判定だけ残して止めない（local-signer なので止める者がいない＝通る）",
+      "expect": "success",
+      "runId": "agentcore-only-shadow",
+      "status": "success",
+      "exitCode": 0,
+      "artifactsDir": "/home/user/AWS-AgentCore-Payments/artifacts/agentcore-only-shadow",
+      "ok": true,
+      "collected": {
+        "discover_candidates": true,
+        "402_response": true,
+        "limit_decision": true,
+        "approval_record": true,
+        "retry_request_sent": true,
+        "success_200": true,
+        "receipt": true,
+        "mainnet_halt": false,
+        "limit_rule": "per_call_max",
+        "process_payment_called": true,
+        "approval_scope_recorded": true,
+        "resend_rejected": false,
+        "payto_decision": "allowed",
+        "upto_settled": false,
+        "harness_limit_enforced": false
       }
     }
   ],

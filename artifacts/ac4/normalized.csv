@@ -1,0 +1,16 @@
+timestamp,seller_host,protocol,scheme,network,price,settled_amount,gas,latency_ms,http_status,delivered,processPaymentId,tx_hash,source,path
+2026-10-20T15:15:01+09:00,x402.org,x402,exact,eip155:84532,0.010000,,,,402,false,,,artifacts/ac4/probe/probe.json,probe-only
+2026-10-20T15:15:01+09:00,x402.org,x402,exact,solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1,0.010000,,,,402,false,,,artifacts/ac4/probe/probe.json,probe-only
+2026-10-20T15:15:01+09:00,api.onesource.io,x402,exact,eip155:8453,0.001000,,,,402,false,,,artifacts/ac4/probe/probe.json,probe-only
+2026-10-20T15:15:01+09:00,api.onesource.io,x402,batch-settlement,eip155:8453,0.001000,,,,402,false,,,artifacts/ac4/probe/probe.json,probe-only
+2026-10-20T15:15:01+09:00,api.onesource.io,MPP,tempo/charge,eip155:4217,,,,,402,false,,,artifacts/ac4/probe/probe.json,probe-only
+2026-10-20T15:15:01+09:00,api.onesource.io,MPP,tempo/charge,eip155:4217,,,,,402,false,,,artifacts/ac4/probe/probe.json,probe-only
+2026-10-20T15:15:01+09:00,api.onesource.io,MPP,tempo/session,eip155:4217,,,,,402,false,,,artifacts/ac4/probe/probe.json,probe-only
+2026-10-20T15:15:01+09:00,2s.io,x402,exact,eip155:8453,0.002500,,,,402,false,,,artifacts/ac4/probe/probe.json,probe-only
+2026-10-20T15:15:01+09:00,2s.io,x402,exact,solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp,0.002500,,,,402,false,,,artifacts/ac4/probe/probe.json,probe-only
+2026-10-20T15:15:02+09:00,2s.io,x402,exact,eip155:8453,0.002500,,,,402,false,,,artifacts/ac4/probe/probe.json,probe-only
+2026-10-20T15:15:02+09:00,2s.io,x402,exact,solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp,0.002500,,,,402,false,,,artifacts/ac4/probe/probe.json,probe-only
+2026-10-20T15:15:02+09:00,2s.io,x402,upto,eip155:8453,0.002500,,,,402,false,,,artifacts/ac4/probe/probe.json,probe-only
+2026-10-20T15:15:02+09:00,x402.ottoai.services,x402,exact,eip155:8453,0.001000,,,,402,false,,,artifacts/ac4/probe/probe.json,probe-only
+2026-10-20T15:15:02+09:00,x402.ottoai.services,x402,exact,solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp,0.001000,,,,402,false,,,artifacts/ac4/probe/probe.json,probe-only
+2026-10-20T15:15:03+09:00,blockrun.ai,x402,exact,eip155:8453,0.002000,,,,402,false,,,artifacts/ac4/probe/probe.json,probe-only
