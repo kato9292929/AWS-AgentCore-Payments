@@ -5,7 +5,7 @@
 ```
 塞がれていたもの                 2026-08                          2026-10-20
 -------------------------------  -------------------------------  ------------------------------------------------------------
-売り手側 egress（x402.org 等）    403 host_not_allowed              解消。x402.org/protected から 402 を取得（artifacts/ac4/probe/）
+売り手側 egress（x402.org 等）    403 host_not_allowed              解消。下の「egress の現状」の全ホストに到達（proxy の拒否なし）
 docs.aws.amazon.com              403                              解消。AgentCore payments の docs を一次確認（T1 の未確定点を更新）
 売り手の選定                     未定                             x402.org/protected（下の「AC-2 の売り手」）
 AgentCore の資格情報             コントロールプレーンが無効トークン  未解消。env の AWS 鍵は InvalidClientTokenId（STS / control 両方）
@@ -23,8 +23,7 @@ AgentCore の資格情報             コントロールプレーンが無効ト
   Solana devnet の accept も併記されるが、instrument が ETHEREUM なので選ばれない（さらに payTo allowlist で削る）。
 - 選定理由: x402 の仕様を持つ x402.org が運営する公式デモで、testnet 専用・少額・安定している。MPP は返さない。
 - 予備: `https://x402.payai.network/api/base-sepolia/paid-content`（PayAI）、`https://x402.nodeventures.io/check`。
-- egress に要るホスト: `x402.org`、`bedrock-agentcore.us-east-1.amazonaws.com`、`bedrock-agentcore-control.us-east-1.amazonaws.com`、
-  （オンチェーン照合用）`sepolia.base.org`、（CloudWatch 採取用）`logs.us-east-1.amazonaws.com`・`monitoring.us-east-1.amazonaws.com`。
+- egress: このセッションでは全部届く。allowlist 運用の環境で要るホストは下の「allowlist 運用の環境向けのホスト一覧」。
 - 支払い先 allowlist（`config/payto-allowlist.json`）に x402.org の payTo × eip155:84532 だけを入れてある。
   それ以外の payTo には署名に進まない（`run-all` の `payto-not-allowlisted`、`npm run check:py`）。
 
@@ -38,20 +37,66 @@ AgentCore の資格情報             コントロールプレーンが無効ト
 - 続き（instrument と session）は `npm run provision -- --mode=manual --vendor=coinbase` に、コンソールで作られた
   `AGENTCORE_PAYMENT_MANAGER_ARN` と `AGENTCORE_PAYMENT_CONNECTOR_ID` を env で渡して作る（既存を READY 確認するだけで作り直さない）。
 
----
+### 結論（2026-08 に書いたもの。2026-10-20 時点でも変わらない）
 
-以下は 2026-08 時点の記録（経緯として残す）。
-
-結論から書く。**x402 経路・MPP 経路とも、HTTP の一周（402 → 署名 → 再送 → 200 →
+**x402 経路・MPP 経路とも、HTTP の一周（402 → 署名 → 再送 → 200 →
 receipt）はコードとして動いており、ログも採れている。ただし相手はローカルの模擬売り手であって、
 mpp.dev でも Exa でもない。** AgentCore の `ProcessPayment` も実行できていない。
 
 「一周できた」と書いてよいのは模擬売り手に対してだけで、
 **公開 testnet エンドポイントに対しては一周していない。**
 
-## 何が塞がれているか（実測）
+## egress の現状（2026-10-20 実測）
 
-### 1. 売り手側エンドポイントへの egress
+**このセッションでは egress は塞がれていない。** 次のホストに HTTPS で到達できた（`curl https://<host>/`）。
+判定は「proxy の拒否ヘッダ `x-deny-reason` が付かずに、相手のサーバが応答したか」。
+404 / 405 / 403 は相手のサーバ自身の応答で、到達はしている
+（例: `bedrock-agentcore-control` の 403 は AWS の `x-amzn-errortype: AccessDeniedException` で、未認証のリクエストへの正常な応答）。
+
+```
+ホスト                                             応答  用途
+-------------------------------------------------  ----  ---------------------------------------------------
+x402.org                                           200   AC-2 の売り手（/protected は 402）・facilitator
+bedrock-agentcore.us-east-1.amazonaws.com          404   データプレーン（provision・支払い）
+bedrock-agentcore-control.us-east-1.amazonaws.com  403   コントロールプレーン（AWS の AccessDenied。未認証）
+sts.amazonaws.com                                  302   資格情報の確認（assume-role / SSO のときだけ使う）
+logs.us-east-1.amazonaws.com                       404   CloudWatch Logs（vended logs の採取）
+monitoring.us-east-1.amazonaws.com                 404   CloudWatch メトリクス
+sepolia.base.org                                   405   Base Sepolia RPC（オンチェーン照合・ETH 残高）
+mainnet.base.org                                   405   Base mainnet RPC（AC-3b を実施する場合のみ）
+docs.aws.amazon.com / aws.amazon.com               200   一次情報の確認
+mpp.dev / note.com                                 200   参照のみ
+blockrun.ai / 2s.io / api.onesource.io             200   AC-3b / AC-4 の売り手（402 の取得のみ）
+x402.ottoai.services / x402.payai.network          200   AC-4 の売り手 / AC-2 の予備
+faucet.circle.com                                  200   testnet USDC の入金（人間がブラウザで使う）
+www.x402scan.com / api.cdp.coinbase.com            200/404  売り手カタログ（x402scan / x402 Bazaar）
+```
+
+### allowlist 運用の環境向けのホスト一覧
+
+egress を allowlist で絞っている環境では、少なくとも次を許可する（ワイルドカードで広く開けない）。
+
+```
+必須（AC-1〜AC-3a）
+  bedrock-agentcore.us-east-1.amazonaws.com
+  bedrock-agentcore-control.us-east-1.amazonaws.com
+  x402.org                                  # AC-2 の売り手、AC-3a の upto facilitator
+  sepolia.base.org                          # オンチェーン照合、approve の gas 測定
+あると測れる項目が増える
+  logs.us-east-1.amazonaws.com              # AC-2 CloudWatch（vended logs）
+  monitoring.us-east-1.amazonaws.com        # AC-2 CloudWatch（メトリクス）
+  sts.amazonaws.com                         # 資格情報を assume-role / SSO で解決する場合だけ
+AC-3b / AC-4 を実施する場合
+  blockrun.ai  2s.io  api.onesource.io  x402.ottoai.services  mainnet.base.org
+```
+
+---
+
+以下は 2026-08 時点の記録（経緯として残す）。
+
+## 2026-08 時点の記録（当時は塞がれていた）
+
+### 1. 売り手側エンドポイントへの egress（2026-08 時点。2026-10-20 には到達できる）
 
 `artifacts/live-attempt/events.jsonl` より、`--allow-live` で実際に叩いた結果:
 
@@ -65,7 +110,7 @@ mpp.dev でも Exa でもない。** AgentCore の `ProcessPayment` も実行で
   "body": "Host not in allowlist: mpp.dev. Add this host to your network egress settings t..." }
 ```
 
-同じ理由で `docs.aws.amazon.com` `aws.amazon.com` `note.com` も 403。
+同じ理由で `docs.aws.amazon.com` `aws.amazon.com` `note.com` も 403（いずれも 2026-10-20 には到達できる）。
 `github.com` `raw.githubusercontent.com` `registry.npmjs.org` は許可されている
 （プロトコル仕様と SDK はここから一次確認した）。
 
@@ -291,7 +336,7 @@ get_payment_session / list_payment_instruments
 - `AgentCorePaymentsPlugin(config=...)` の構築と登録ツール5本
 - `NETWORK_PREFERENCES` の mainnet 先頭
 
-**未検証**（資格情報と egress が無いため）:
+**未検証**（資格情報が無いため。egress は 2026-10-20 に開いた）:
 - provision の実行そのもの
 - Privy の日本での登録可否
 - `ProcessPayment` が返す status の実値（SDK 3系は `PROOF_GENERATED` 単一、
@@ -322,6 +367,7 @@ per-call 上限・監査ログ・承認記録が要る段階になったら戻�
 > 実行環境ごとに allowlist が違う。実測:
 > - 2026-08-22 / 2026-08-25 の環境: `bedrock-agentcore*` には届く（認証エラーまで進む）が
 >   `x402.org` / `mpp.dev` / `docs.aws.amazon.com` / `note.com` は 403。
+> - 2026-10-20 の環境: 上の「egress の現状」のとおり全部届く。残っているのは AWS 資格情報だけ。
 > **AWS 結線と testnet 到達の両方が同時に開いた環境**でないと一周できない。
 
 ### 入金は「最後」であって「前提」ではない

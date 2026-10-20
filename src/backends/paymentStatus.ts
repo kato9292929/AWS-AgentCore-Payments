@@ -13,8 +13,10 @@
  *  (b) 開発指示書が引く AWS「AgentCore payments quick start」(payments-getting-started.html):
  *      → 応答 status は PENDING / SUCCESS / FAILED。
  *
- * 本セッションから docs.aws.amazon.com は egress 許可外（403）で読めないため、
- * どちらが現行かを確定できない。**推測でどちらかに寄せない。**
+ * 2026-08 のセッションからは docs.aws.amazon.com が egress 許可外（403）で読めず、
+ * どちらが現行かを確定できなかった。**推測でどちらかに寄せない。**
+ * 2026-10-20 に API リファレンス（API_ProcessPayment.html）を確認し、enum は PROOF_GENERATED のみと分かった
+ * （quick start の PENDING/SUCCESS/FAILED は docs 側の不整合）。実際に返る値は live で確かめる。
  *
  * 方針: status は不透明な文字列として verbatim にログへ残し、
  * 「決済を続けてよいか」の判定だけをこの関数で行う。

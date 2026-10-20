@@ -5,7 +5,8 @@
  *   1. artifacts/ と docs/ の**全テキストファイル**（.json .jsonl .md .csv .txt .log）を見る
  *      （Python 側が書いたログ、AC-4 の CSV、結果表の Markdown も対象）
  *   2. 実行環境に置かれている秘密らしい env の**値そのもの**が、どこかに書き出されていないかを見る
- *      （例: CDP_API_KEY_SECRET、PRIVY_APP_SECRET、AWS_SECRET_ACCESS_KEY、*_KEYPAIR）。
+ *      （例: CDP_API_KEY_SECRET、PRIVY_APP_SECRET、AWS_SECRET_ACCESS_KEY、*_KEYPAIR、
+ *      *_RPC_URL — RPC の URL には API キーが埋め込まれていることがある）。
  *      値は表示しない。ヒットしたら env 名とファイル名だけを出す。
  *   3. 自己確認: 偽の秘密 env をつくって一時ファイルに書き、検出できることを先に確かめる（空振りの検査にしない）
  */
@@ -17,7 +18,7 @@ import { findKeyMaterial } from "../src/guard/redact.js";
 
 const TEXT_EXT = [".json", ".jsonl", ".md", ".csv", ".txt", ".log"];
 const SECRET_ENV_NAME =
-  /(SECRET|PRIVATE|KEYPAIR|MNEMONIC|SEED|PASSWORD|API_KEY|ACCESS_KEY|AUTH_TOKEN|SESSION_TOKEN|WALLET)/i;
+  /(SECRET|PRIVATE|KEYPAIR|MNEMONIC|SEED|PASSWORD|API_KEY|ACCESS_KEY|AUTH_TOKEN|SESSION_TOKEN|WALLET|RPC_URL)/i;
 /** 秘密ではないことが分かっている env（ID・公開値） */
 const NOT_SECRET = new Set(["AWS_ACCESS_KEY_ID", "CDP_API_KEY_ID", "PRIVY_APP_ID", "PRIVY_AUTHORIZATION_ID", "AGENTCORE_WALLET_ADDRESS"]);
 

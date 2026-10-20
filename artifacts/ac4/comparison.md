@@ -1,6 +1,6 @@
 # AC-4 比較表（AgentCore 経由 / AA 列は空欄）
 
-生成: 2026-10-20T15:15:16+09:00（scripts/ac4/normalize.ts）
+生成: 2026-10-20T17:42:52+09:00（scripts/ac4/normalize.ts）
 
 ```
 売り手                 経路         提示額 USD(scheme)                       実費 USD(中央値) 上乗せ     失敗率   遅延ms(中央) AA  

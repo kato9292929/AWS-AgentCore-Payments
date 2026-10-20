@@ -4,7 +4,7 @@
  * 入力（あるものだけ読む。無ければ飛ばす）:
  *   artifacts/ac2/runs.jsonl            … AC-2 の 402→200（scripts/ac2/run.py）
  *   artifacts/ac3/live.json             … AC-3a の live（scripts/ac3/run.ts --mode=live）
- *   artifacts/ac3/blockrun-mainnet.json … AC-3b（scripts/ac3/blockrun_mainnet.py）
+ *   artifacts/ac3/ac3b-mainnet.json     … AC-3b（scripts/ac3/ac3b_mainnet.py。2s=upto / BlockRun=exact）
  *   artifacts/ac4/probe/probe.json      … --probe-only（支払っていない。price だけが埋まる）
  *
  * 出力:
@@ -128,27 +128,33 @@ export function fromAc3Live(d: Record<string, any> | undefined): Row[] {
 }
 
 export function fromAc3b(d: Record<string, any> | undefined): Row[] {
-  if (!d?.["paid"]) return [];
-  return (d["runs"] as Array<Record<string, any>>).map((r) => {
-    const pp = (d["process_payment"] ?? [])[r["i"] - 1] ?? {};
-    return {
-      timestamp: toJst(d["measuredAt"]),
-      seller_host: host(d["seller"]),
-      protocol: "x402",
-      scheme: r["scheme"],
-      network: "eip155:8453",
-      price: r["cap_usd"] ?? null,
-      settled_amount: null,
-      gas: null,
-      latency_ms: r["latency_ms"] ?? null,
-      http_status: r["http_status"] ?? null,
-      delivered: r["http_status"] >= 200 && r["http_status"] < 300,
-      processPaymentId: pp["process_payment_id"] ?? null,
-      tx_hash: null,
-      source: "artifacts/ac3/blockrun-mainnet.json",
-      path: "agentcore",
-    };
-  });
+  const rows: Row[] = [];
+  for (const [, sel] of Object.entries((d?.["sellers"] ?? {}) as Record<string, Record<string, any>>)) {
+    if (!sel["paid"]) continue;
+    for (const r of sel["runs"] as Array<Record<string, any>>) {
+      const pp = (sel["process_payment"] ?? [])[r["i"] - 1] ?? {};
+      const st = r["settlement"] ?? {};
+      rows.push({
+        timestamp: toJst(d!["measuredAt"]),
+        seller_host: host(sel["url"]),
+        protocol: "x402",
+        scheme: r["scheme"],
+        network: r["offer"]?.["network"] ?? "eip155:8453",
+        price: r["cap_usd"] ?? null,
+        settled_amount: usd(st["amount"]),
+        // upto の初回は Permit2 approve の gas。exact（EIP-3009）は facilitator 負担
+        gas: r["i"] === 1 && sel["approve_gas_eth"] ? sel["approve_gas_eth"] : r["http_status"] ? "0" : null,
+        latency_ms: r["latency_ms"] ?? null,
+        http_status: r["http_status"] ?? null,
+        delivered: r["http_status"] >= 200 && r["http_status"] < 300,
+        processPaymentId: pp["process_payment_id"] ?? null,
+        tx_hash: st["transaction"] || r["x_payment_tx"] || null,
+        source: "artifacts/ac3/ac3b-mainnet.json",
+        path: "agentcore",
+      });
+    }
+  }
+  return rows;
 }
 
 export function fromProbe(d: Record<string, any> | undefined): Row[] {
@@ -264,7 +270,7 @@ function main(): void {
   const rows = [
     ...fromAc2(ac2),
     ...fromAc3Live(readJson(resolve(root, "ac3/live.json")) as Record<string, any> | undefined),
-    ...fromAc3b(readJson(resolve(root, "ac3/blockrun-mainnet.json")) as Record<string, any> | undefined),
+    ...fromAc3b(readJson(resolve(root, "ac3/ac3b-mainnet.json")) as Record<string, any> | undefined),
     ...fromProbe(probes),
   ];
   mkdirSync(out, { recursive: true });

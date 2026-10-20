@@ -4,8 +4,9 @@
 
 ## 0. 何を一次情報として使ったか（重要）
 
-本セッションの egress ポリシーは `docs.aws.amazon.com` と `aws.amazon.com` を
-**403 host_not_allowed** で塞ぐ。したがって公式ドキュメントページの精読はできていない。
+2026-08 時点のセッションの egress ポリシーは `docs.aws.amazon.com` と `aws.amazon.com` を
+**403 host_not_allowed** で塞いでいた。したがって当時は公式ドキュメントページの精読ができていない。
+（2026-10-20 には到達でき、docs で確認した結果を末尾の追記に書いた）
 
 代わりに、**同じ AWS API モデルから生成される SDK 型定義**を一次情報として使った。
 
@@ -232,7 +233,7 @@ Coinbase または Stripe 側のクレデンシャルが要る（`CreatePaymentC
 
 ## 0. 出典の区分
 
-本セッションでも `docs.aws.amazon.com` は egress 許可外（403）のまま。
+2026-08 時点では `docs.aws.amazon.com` は egress 許可外（403）のままだった（2026-10-20 には到達できる。末尾の追記）。
 したがって以下では出典を 2 種類に分けて書く。**混ぜない。**
 
 - **[SDK実測]** — `@aws-sdk/client-bedrock-agentcore@3.1117.0` の生成モデルを

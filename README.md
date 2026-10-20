@@ -169,7 +169,7 @@ infra/iam/              サービスロールの信頼ポリシーと権限の�
 docs/                   T1 の一次確認、未達の理由、図、6軸比較、記事差し替えメモ
 scripts/ac1/            AC-1（run.ts: ProcessPayment 直叩き D1〜D8 / d3_client_token.py: D3）
 scripts/ac2/            AC-2（run.py: 10 回計測とオンチェーン照合 / cloudwatch.py / check_payto_guard.py）
-scripts/ac3/            AC-3（run.ts: upto の予算 / blockrun_mainnet.py: AC-3b、--allow-mainnet 必須）
+scripts/ac3/            AC-3（run.ts: upto の予算 / ac3b_mainnet.py: AC-3b の 2s(upto)・BlockRun(exact)、--allow-mainnet 必須）
 scripts/ac4/normalize.ts AC-4 の書式へ変換と比較表（AA 列は空欄）
 scripts/py/             Python 共用（LocalPlane: AgentCore を呼ばない結線確認 / 台本モデル / scrub）
 scripts/report.ts       artifacts から docs/AC1〜AC3-results.md を作り直す

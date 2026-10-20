@@ -1,7 +1,7 @@
 {
   "$comment": [
     "discover が引く候補レジストリ（testnet 限定）。",
-    "live 側は本セッションの egress ポリシー（mpp.dev / x402.org へ 403）で到達確認ができていない。",
+    "live 側は 2026-08 のセッションでは egress 403 で到達確認ができなかった。2026-10-20 に x402.org/protected の 402 を確認した（mpp.dev はトップに到達できるが、有料エンドポイントのパスは未確認）。",
     "reachability を 'unverified' のまま推測で 'ok' に書き換えないこと。",
     "本番のディレクトリ（x402 Bazaar / MPP discovery）を引く場合は",
     "DISCOVERY_DIRECTORY_URL を設定する。設定時はこのファイルより優先される。"
@@ -38,10 +38,11 @@
       "id": "live-x402-demo",
       "rail": "x402",
       "endpoint": "https://x402.org/protected",
-      "description": "x402 公開デモ（testnet）",
-      "statedPrice": "unknown",
+      "description": "x402 公開デモ（testnet。x402 v2 exact / eip155:84532）",
+      "statedPrice": "0.01",
       "kind": "live",
-      "reachability": "unverified"
+      "reachability": "ok",
+      "reachabilityCheckedAt": "2026-10-20"
     },
     {
       "id": "live-mpp-demo",

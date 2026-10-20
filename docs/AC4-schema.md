@@ -54,7 +54,7 @@ npm run ac4:normalize      # AC-2・AC-3・probe を変換 → artifacts/ac4/nor
 ```
 artifacts/ac2/runs.jsonl              AC-2（scripts/ac2/run.py）
 artifacts/ac3/live.json               AC-3a live（scripts/ac3/run.ts --mode=live）
-artifacts/ac3/blockrun-mainnet.json   AC-3b（scripts/ac3/blockrun_mainnet.py --allow-mainnet のときだけ支払い行が出る）
+artifacts/ac3/ac3b-mainnet.json       AC-3b（scripts/ac3/ac3b_mainnet.py --allow-mainnet のときだけ支払い行が出る）
 artifacts/ac4/probe/probe.json        --probe-only
 ```
 

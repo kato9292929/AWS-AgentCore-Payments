@@ -1,6 +1,6 @@
 # AC-3 結果: upto スキームでの上限の扱い
 
-生成: 2026-10-20T15:15:53+09:00（`npx tsx scripts/report.ts`。値は artifacts/ac3/ からのみ取る）
+生成: 2026-10-20T17:42:53+09:00（`npx tsx scripts/report.ts`。値は artifacts/ac3/ からのみ取る）
 
 ```
 区分   項目                                                 値                                                            状態
@@ -10,8 +10,10 @@ AC-3a  自前ガードの減り方                                   16 回通�
 AC-3a  AgentCore の予算の減り方                             -                                                             未実施（資格情報／provision の出力が無い）
 AC-3a  approve の gas 代（初回のみ permit2AllowanceLimit）  -                                                             未実施（資格情報／provision の出力が無い）
 AC-3a  upto facilitator                                     https://x402.org/facilitator（upto on eip155:84532, facilitatorAddress 0xd407e409…）  確認済み（未入金鍵の署名で /verify → permit2_insufficient_balance）
-AC-3b  BlockRun の upto                                     返さない（exact のみ）：exact eip155:8453 2000                実測（402 のみ。署名していない）
-AC-3b  mainnet の支払い                                     -                                                             未実施（本人判断待ち。--allow-mainnet なしでは署名しない）
+AC-3b  2s の upto（402）                                    上限 2500（amount）/ eip155:8453 / payTo 0x2b6D4988… / facilitator 0x68A96F41…  実測（402 のみ。署名していない）
+AC-3b  2s の予算の減り方（upto）                            -                                                             未実施（本人判断待ち。--allow-mainnet なしでは署名しない）
+AC-3b  2s の approve の gas 代（Base mainnet）              -                                                             未実施（同上）
+AC-3b  BlockRun（exact の参照値）                           upto を返さない：exact eip155:8453 2000                       402 のみ実測。支払いは未実施（同上）
 ```
 
 ## 判定の読み方（AC-3a）
@@ -41,16 +43,30 @@ settle 応答に額が無ければ上限額で確定する（少なく見積も�
 
 ## AC-3b（mainnet）
 
-- BlockRun（`POST https://blockrun.ai/api/v1/chat/completions`）の 402 を**支払わずに**取った結果は上の表のとおり。
-  upto を返していないので、可とされた場合は exact で 1 回払って終える（`scripts/ac3/blockrun_mainnet.py --allow-mainnet`）。
-- upto を実際に返している mainnet の売り手は 2s（`POST https://2s.io/api/ai/chat`）。AC-4 の probe に入れてある。
-- ガード: `--allow-mainnet` が無ければ署名しない／payTo は `config/payto-allowlist.mainnet.json` の BlockRun のみ／
-  セッション上限 $0.20／総額 $1.00（`artifacts/ac3/mainnet-ledger.json` に累計）／1 回 $0.05 超は署名しない。
+スクリプトは `scripts/ac3/ac3b_mainnet.py`。売り手は 2 つ。
+
+| 売り手 | エンドポイント | 役割 | 402（支払わずに取得） |
+|---|---|---|---|
+| 2s | `POST https://2s.io/api/ai/chat` | **upto の実測対象** | exact（Base / Solana）と **upto（Base）**。upto の上限は v2 の `amount`（v1 の maxAmountRequired に当たる） |
+| BlockRun | `POST https://blockrun.ai/api/v1/chat/completions` | exact の参照値 | exact のみ |
+
+- 2s の `extra.facilitatorAddress` は **402 ごとに変わる**（CDP facilitator の署名者が入れ替わる。2026-10-20 に
+  `0x8F5cB67B…` と `0x68A96F41…` を観測）。upto の署名は `witness.facilitator` をこの値に縛るので、毎回その場の 402 から取る
+  （スクリプトは各回 402 を取り直している）。
+- 2s の upto では、各回の前後と settle 5 秒後に残予算を取り、1 回あたりの減り方が上限額（$0.0025）か実額かを直接見る
+  （上限額が小さいので、セッション上限 $0.20 に当てて回数で見る方法は使わない。既定 3 回）。
+- 初回だけ `permit2AllowanceLimit`（既定 1 USDC ＝ 総額上限と同じ）を渡す。Base mainnet で Permit2 への approve が
+  オンチェーンで出るので、**ウォレットに Base mainnet の ETH が少し要る**。試験後も approve は残る（取り消すなら USDC.approve(Permit2, 0)）。
+- ガード（変えていない）: `--allow-mainnet` が無ければ署名しない／payTo は `config/payto-allowlist.mainnet.json` のうち
+  **その売り手の payTo だけ**（2s を払う設定で BlockRun の payTo は通らない。逆も。`npm run check:py` で確認）／
+  セッション上限 $0.20／総額 $1.00（`artifacts/ac3/mainnet-ledger.json` に累計。上限額で見積もって超えるなら署名しない）／
+  1 回（上限額）$0.05 超は署名しない。
 
 ## live で埋める手順
 
 ```bash
 export AGENTCORE_WALLET_ADDRESS=0x...          # provision の出力（approve の gas を ETH 残高差で測る）
 npm run ac3 -- --mode=live --n=20               # 模擬売り手を 8415 で起動し、x402.org facilitator で settle
+python scripts/ac3/ac3b_mainnet.py --allow-mainnet   # AC-3b（本人が可とした場合のみ）
 npx tsx scripts/report.ts
 ```
