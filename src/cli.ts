@@ -9,7 +9,9 @@ import type { ToolContext } from "./agent/tools.js";
 import { CliApprover, PresetApprover, approverIdentity, type Approver } from "./guard/approval.js";
 import { ApprovalLedger } from "./guard/approvalLedger.js";
 import { DemandLedger } from "./guard/demandLedger.js";
-import { SpendLimiter } from "./guard/limits.js";
+import { SpendLimiter, type GuardMode } from "./guard/limits.js";
+import { PayToAllowlist } from "./guard/payToAllowlist.js";
+import { probeEndpoints } from "./tools/probe.js";
 import { assertNoMainnetConfig, MainnetDetected } from "./guard/network.js";
 import { Recorder } from "./log/recorder.js";
 
@@ -25,6 +27,10 @@ interface Args {
   runId: string;
   outDir: string;
   label: string;
+  /** 自前の上限（層2）を効かせるか。agentcore-only は AC-1 の測定用。 */
+  guards: GuardMode;
+  /** 402 を取って記録するだけ。署名も再送もしない（AC-4）。 */
+  probeOnly: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -46,7 +52,15 @@ function parseArgs(argv: string[]): Args {
     runId: get("run-id") ?? `${label}-${new Date().toISOString().replace(/[:.]/g, "-")}`,
     outDir: get("out") ?? "artifacts",
     label,
+    guards: parseGuards(get("guards")),
+    probeOnly: has("probe-only"),
   };
+}
+
+function parseGuards(v: string | undefined): GuardMode {
+  if (v === undefined || v === "both") return "both";
+  if (v === "agentcore-only") return "agentcore-only";
+  throw new Error(`--guards=${v} は不正。both か agentcore-only`);
 }
 
 export async function main(argv: string[]): Promise<number> {
@@ -62,6 +76,16 @@ export async function main(argv: string[]): Promise<number> {
     echo: process.env["ECHO_LOG"] === "true",
   });
 
+  if (args.probeOnly) {
+    // 支払わない。backend もセッションも開かない（鍵に触れる経路が無い）。
+    const targets = args.endpoints ?? (args.endpoint ? [args.endpoint] : []);
+    if (targets.length === 0) throw new Error("--probe-only には --endpoint= か --endpoints= が要る");
+    const results = await probeEndpoints(rec, targets);
+    rec.writeJson("probe.json", { runId: args.runId, label: args.label, signed: false, results });
+    process.stdout.write(`${JSON.stringify({ runId: args.runId, status: "probed", n: results.length, dir: rec.dir })}\n`);
+    return 0;
+  }
+
   rec.event("harness.config", {
     // T1 の受け入れ条件: 設定値をログに固定する
     region: cfg.region,
@@ -73,6 +97,7 @@ export async function main(argv: string[]): Promise<number> {
     auto_approve: cfg.autoApprove,
     backend: args.backend,
     planner: args.planner,
+    guards: args.guards,
     allow_live_endpoints: args.allowLive,
     label: args.label,
   });
@@ -92,7 +117,8 @@ export async function main(argv: string[]): Promise<number> {
           args.approve === "no-after-first",
         );
 
-  const limiter = new SpendLimiter(cfg);
+  const limiter = new SpendLimiter(cfg, { guards: args.guards });
+  const payTo = PayToAllowlist.load();
   const grants = new ApprovalLedger();
   const demands = new DemandLedger({
     maxProcessPaymentAttempts: Number(process.env["MAX_PROCESS_PAYMENT_ATTEMPTS"] ?? "1"),
@@ -121,6 +147,7 @@ export async function main(argv: string[]): Promise<number> {
       approver,
       grants,
       demands,
+      payTo,
       merchantKind: (endpoint) =>
         endpoint.startsWith("http://127.0.0.1") || endpoint.startsWith("http://localhost")
           ? "mock-local"
@@ -136,7 +163,8 @@ export async function main(argv: string[]): Promise<number> {
   let exitCode = 0;
   try {
     await backend.openSession(atomicToUsd(cfg.sessionMaxAtomic), cfg.sessionExpiryMinutes);
-    const result = await runSession(rec, planner, ctx);
+    // 既定は 6 手。--endpoints で多数回払う測定（AC-1 D4h, AC-3a）は discover + 件数 + 終了の手数を許す。
+    const result = await runSession(rec, planner, ctx, Math.max(6, (args.endpoints?.length ?? 0) + 2));
 
     const receipts = result.toolCalls
       .filter((c) => c.name === "pay")

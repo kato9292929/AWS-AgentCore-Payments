@@ -4,7 +4,8 @@ import { atomicToUsd, type HarnessConfig } from "../config.js";
 import type { ApprovalRecord, Approver } from "../guard/approval.js";
 import { ApprovalLedger, type Grant } from "../guard/approvalLedger.js";
 import { DemandLedger } from "../guard/demandLedger.js";
-import { SpendLimiter } from "../guard/limits.js";
+import { SpendLimiter, type Reservation } from "../guard/limits.js";
+import type { PayToAllowlist } from "../guard/payToAllowlist.js";
 import { MainnetDetected } from "../guard/network.js";
 import type { Recorder } from "../log/recorder.js";
 import * as mpp from "../rails/mpp.js";
@@ -19,6 +20,8 @@ export interface PayDeps {
   approver: Approver;
   grants: ApprovalLedger;
   demands: DemandLedger;
+  /** 支払い先の allowlist（AC-2）。ここに無い payTo / network には署名に進まない。 */
+  payTo: PayToAllowlist;
   /** ログに live / mock-local を残すための判定。 */
   merchantKind: (endpoint: string) => "live" | "mock-local";
 }
@@ -34,8 +37,11 @@ export interface PayDeps {
  * 引数は endpoint と request だけで、上限値も鍵も渡せない。
  *
  * 通る順番（この順番自体がガードレール）:
- *   402 を受ける → 層2で金額を拘束 → 層3で承認を取る → 二重支払い/再送回数を見る
- *   → 層1（鍵）で署名 → 再送 → receipt
+ *   402 を受ける → 支払い先の allowlist → 層2で金額を拘束 → 層3で承認を取る
+ *   → 二重支払い/再送回数を見る → 層1（鍵）で署名 → 再送 → receipt
+ *
+ * upto（上限額だけ決めて実額を請求される方式）は、層2で上限額を予約し、
+ * settle 後に実額で確定して差額を解放する。exact は従来どおり成立後に金額を計上する。
  */
 export async function pay(
   deps: PayDeps,
@@ -43,10 +49,22 @@ export async function pay(
   request: { rail?: Rail; method?: string } = {},
 ): Promise<PayResult> {
   const { cfg, rec, backend, limiter, approver, grants, demands } = deps;
+  let reservation: Reservation | undefined;
   // pay() 1 回ごとの識別子。同じ商品をあとでもう一度買うのは正当なので、
   // 二重支払い判定はこの呼び出しの内側に閉じる。
   const payCallId = randomUUID();
   rec.event("tool.pay.call", { endpoint, request, payCallId });
+  /**
+   * 決済に至らなかった upto の予約を解放する。
+   * 署名済みで 402 / 非 2xx が返った場合も解放する（ハーネス側の会計）。
+   * AgentCore 側の予算がどう減ったかは別に記録する（AC-3）。
+   */
+  const releaseReservation = (): void => {
+    if (!reservation) return;
+    limiter.release(reservation);
+    rec.event("guard.limit.released", { endpoint, cap_atomic: reservation.capAtomic.toString(), ...limiter.snapshot() });
+    reservation = undefined;
+  };
 
   try {
     // ---- 4. 素のリクエストを投げて 402 と支払い要求を受ける ----
@@ -78,19 +96,44 @@ export async function pay(
       fingerprint,
     });
 
+    // ---- 5. 支払い先の allowlist。誰に払うかは AgentCore 側で縛れない ----
+    const payToVerdict = deps.payTo.check(demand);
+    rec.event("guard.payto.decision", {
+      endpoint,
+      payTo: demand.payTo,
+      network: demand.network,
+      allowed: payToVerdict.allowed,
+      ...(payToVerdict.allowed ? { entry: payToVerdict.entry.label } : { reason: payToVerdict.reason }),
+    });
+    if (!payToVerdict.allowed) {
+      rec.event("pay.declined", {
+        endpoint,
+        reason: payToVerdict.reason,
+        retry_sent: false,
+        process_payment_called: false,
+      });
+      return { status: "declined", reason: payToVerdict.reason, detail: { payTo: demand.payTo, network: demand.network } };
+    }
+
     // ---- 5a. 層2: 金額の拘束。ここを通らずに決済へ進む経路は無い ----
-    const decision = limiter.evaluate(demand.amountAtomic);
+    // agentcore-only のときは判定だけ残して止めない（AgentCore 側だけで止まるかを測る）。
+    const harnessDecision = limiter.evaluate(demand.amountAtomic);
+    const decision = limiter.enforcing ? harnessDecision : ({ verdict: "within" } as const);
     rec.event("guard.limit.decision", {
       endpoint,
       verdict: decision.verdict,
-      ...("reason" in decision ? { reason: decision.reason } : {}),
-      ...("rule" in decision ? { rule: decision.rule } : {}),
-      ...("detail" in decision ? decision.detail : {}),
+      guards: limiter.guards,
+      ...(limiter.enforcing ? {} : { harness_verdict: harnessDecision.verdict, enforced: false }),
+      scheme: demand.scheme,
+      ...("reason" in harnessDecision ? { reason: harnessDecision.reason } : {}),
+      ...("rule" in harnessDecision ? { rule: harnessDecision.rule } : {}),
+      ...("detail" in harnessDecision ? harnessDecision.detail : {}),
       ...limiter.snapshot(),
       // AgentCore の SessionLimits はセッション累計しか持たない。
       // per_call_max で落ちた場合、それはハーネス側にしか無い拘束である。
-      enforced_by:
-        "rule" in decision && decision.rule === "per_call_max"
+      enforced_by: !limiter.enforcing
+        ? "AgentCore SessionLimits only (--guards=agentcore-only)"
+        : "rule" in decision && decision.rule === "per_call_max"
           ? "harness-only (AgentCore に該当 API 無し)"
           : "harness + AgentCore SessionLimits",
     });
@@ -179,6 +222,17 @@ export async function pay(
       return { status: "declined", reason: begin.reason };
     }
 
+    // ---- 5d. upto: 署名の前に上限額で予約する（settle 後に実額で確定） ----
+    if (isUpto(demand)) {
+      reservation = limiter.reserve(demand.amountAtomic);
+      rec.event("guard.limit.reserved", {
+        endpoint,
+        scheme: demand.scheme,
+        cap_atomic: demand.amountAtomic.toString(),
+        ...limiter.snapshot(),
+      });
+    }
+
     // ---- 6. 承認済み。決済証明を作る（鍵はこの内側にしか無い） ----
     const proof = await backend.processPayment(demand, { clientToken: begin.entry.clientToken });
     rec.event("pay.proof", {
@@ -194,19 +248,13 @@ export async function pay(
     const resend = demands.beginResend(ledgerKey);
     if (!resend.ok) {
       rec.event("guard.retry.blocked", { endpoint, reason: resend.reason, ...demands.snapshot() });
+      releaseReservation();
       return { status: "declined", reason: resend.reason };
     }
 
     const retry =
       proof.rail === "x402"
-        ? await x402.retryWithPayment(
-            rec,
-            endpoint,
-            Number(proof.version),
-            demand.scheme,
-            demand.network,
-            proof.payload,
-          )
+        ? await x402.retryWithPayment(rec, endpoint, demand, proof.payload)
         : await mpp.retryWithCredential(rec, endpoint, proof.paymentCredential);
 
     if (retry.status === 402) {
@@ -218,10 +266,12 @@ export async function pay(
         note: "売り手が支払いを受け付けなかった。再署名はしない。",
         body: retry.bodyText.slice(0, 300),
       });
+      releaseReservation();
       return { status: "declined", reason: "payment_rejected_by_merchant" };
     }
     if (retry.status < 200 || retry.status >= 300) {
       rec.event("pay.retry_failed", { endpoint, status: retry.status, body: retry.bodyText.slice(0, 400) });
+      releaseReservation();
       return { status: "error", reason: `retry_status_${retry.status}` };
     }
 
@@ -238,7 +288,24 @@ export async function pay(
         ? x402.receiptFrom(retry, demand, receiptMeta)
         : mpp.receiptFrom(retry, demand, receiptMeta);
 
-    limiter.commit(demand.amountAtomic);
+    if (reservation) {
+      // 実額が売り手から返らなければ上限額で確定する（少なく見積もらない）。
+      const actual = receipt.settledAmount !== undefined ? BigInt(receipt.settledAmount) : demand.amountAtomic;
+      const r = limiter.settle(reservation, actual);
+      reservation = undefined;
+      rec.event("guard.limit.settled", {
+        endpoint,
+        scheme: demand.scheme,
+        cap_atomic: demand.amountAtomic.toString(),
+        actual_atomic: actual.toString(),
+        actual_source: receipt.settledAmount !== undefined ? "merchant-settlement" : "cap (settlement に額が無い)",
+        released_atomic: r.released.toString(),
+        ...(r.overcharge > 0n ? { overcharge_atomic: r.overcharge.toString(), note: "売り手が上限額を超えて請求した" } : {}),
+        ...limiter.snapshot(),
+      });
+    } else {
+      limiter.commit(demand.amountAtomic);
+    }
     const settledCount = demands.markSettled(ledgerKey, fingerprint);
     if (settledCount > 1) {
       // 止めはしない（同じ商品の再購入は正当）。気づけるようにだけしておく。
@@ -253,6 +320,11 @@ export async function pay(
 
     return { status: "success", receipt };
   } catch (err) {
+    if (reservation) {
+      limiter.release(reservation);
+      rec.event("guard.limit.released", { endpoint, cap_atomic: reservation.capAtomic.toString(), ...limiter.snapshot() });
+      reservation = undefined;
+    }
     if (err instanceof MainnetDetected) {
       // 7節「実マネー禁止フラグ」。ここに来たらセッションごと落とす。
       rec.event("guard.mainnet.detected", { endpoint, where: err.where, value: err.value });
@@ -327,4 +399,8 @@ async function askHuman(
 
 function guessRail(endpoint: string): Rail {
   return endpoint.includes("/mpp") ? "mpp" : "x402";
+}
+
+function isUpto(demand: { rail: Rail; scheme: string }): boolean {
+  return demand.rail === "x402" && demand.scheme.toLowerCase() === "upto";
 }

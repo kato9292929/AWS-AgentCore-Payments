@@ -39,6 +39,10 @@ export interface PaymentDemand {
 export interface X402Raw {
   kind: "x402";
   x402Version: number;
+  /** v1 は 402 body、v2 は PAYMENT-REQUIRED ヘッダ（base64 JSON）に支払い要求が載る。 */
+  transport: "v1-body" | "v2-header";
+  /** v2 の resource オブジェクト。PAYMENT-SIGNATURE に echo する。 */
+  resource?: unknown;
   /** 402 body の accepts から選んだ 1 件。 */
   requirements: Record<string, unknown>;
   /** 402 body 全体。ログ用。 */
@@ -116,6 +120,13 @@ export interface Receipt {
   testnet: true;
   /** 相手が本物の公開エンドポイントか、ローカルの模擬売り手か。 */
   merchant: "live" | "mock-local";
+  /** x402 の scheme（exact / upto）。MPP は method/intent。 */
+  scheme?: string;
+  /**
+   * 実際に決済された額（atomic）。exact では amount と同じ。
+   * upto では売り手の settlement 応答に載った実額。載っていなければ undefined（上限額で計上する）。
+   */
+  settledAmount?: string;
   /** 誰の承認でこの支払いが成立したか（層3の記録を receipt に残す）。 */
   approval: {
     approver: string;

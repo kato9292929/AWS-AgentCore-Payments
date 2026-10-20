@@ -334,3 +334,32 @@ Stripe Privy 側は `appId` / `appSecret` / `authorizationId` / `authorizationPr
   セッション累計のみ、通貨は `USD` 固定。[SDK実測]
 - **人間承認に対応する概念は API に無い。** `userId` / `agentName` は observability 用のラベル。
 - **買い手ウォレットは Coinbase CDP か Stripe Privy のコネクタ配下。** AWS だけでは足りない。
+
+---
+
+## 2026-10-20 追記: docs.aws.amazon.com で一次確認できたこと（egress が開いたため）
+
+```
+項目                         docs の記述                                                         出典
+---------------------------  ------------------------------------------------------------------  ---------------------------------------------
+ProcessPayment の status     PROOF_GENERATED のみ（PENDING/SUCCESS/FAILED は API に無い。          APIReference/API_ProcessPayment.html
+                             quick start の "returns FAILED" と食い違うのは docs 側の不整合）
+ProcessPayment のエラー       AccessDenied 403 / Conflict 409 / InternalServer 500 /              同上
+                             ResourceNotFound 404 / ServiceQuotaExceeded 402 /
+                             SubscriptionRequired 403 / Throttling 429 / Validation 400
+予算超過・期限切れの例外型     明記なし（quick start の troubleshooting に                        payments-getting-started.html
+                             "Session expired or budget exceeded" の一文のみ）→ AC-1 D4/D5 で実測
+不正 payload                 ValidationException で "consumes no budget"                        API_ProcessPayment.html
+clientToken                  "to ensure the idempotency of the request"（33〜256 文字）。         同上
+                             同じトークンで同じ ID が返るか・中身違いで Conflict かは明記なし → AC-1 D1/D2
+残予算                       GetPaymentSession の availableLimits.availableSpendAmount           API_GetPaymentSession.html
+upto                         x402 v2・EVM・extra.facilitatorAddress 必須。                        payments-*.html（AC-3）
+                             permit2AllowanceLimit は upto のみ（exact に渡すと Validation）。
+                             予算が上限額で減るか実額で減るかは明記なし → AC-3a で実測
+MPP の gas 同意               buyerPaysGasFees が要るのは method=tempo。evm は facilitator 負担      payments-mpp*.html
+期限切れの MPP チャレンジ      ValidationException "MPP challenge has expired"、予算は消費しない   同上
+リージョン                   us-east-1 / us-east-2 / us-west-2 / Frankfurt / Ireland / London /    agentcore-regions.html
+                             Milan / Paris / Spain / Stockholm / Singapore / Sydney。東京は無い
+```
+
+`src/backends/paymentStatus.ts` は status を不透明な文字列として扱う方針のまま変えていない（PROOF_GENERATED は proof_only に分類される）。

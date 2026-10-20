@@ -1,0 +1,29 @@
+{
+  "$comment": [
+    "AC-4 --probe-only の対象。402 を取るだけで、署名も ProcessPayment も再送もしない。",
+    "ホストは x402 Bazaar（api.cdp.coinbase.com/platform/v2/x402/discovery/resources）と各社の llms.txt から 2026-10-20 に特定した。",
+    "GoCreative は Bazaar にも検索にも見つからず、ホスト未特定（gocreative.ai は無関係のサイト）。url を null のまま残す。",
+    "POST の body は 402 を引き出す最小のもの（実際の推論は支払わない限り走らない）。"
+  ],
+  "targets": [
+    { "label": "x402.org（AC-2 の testnet 売り手）", "seller": "x402.org", "url": "https://x402.org/protected" },
+    { "label": "OneSource", "seller": "OneSource", "url": "https://api.onesource.io/api/chain/block-number" },
+    { "label": "2s（ICD-10）", "seller": "2s", "url": "https://2s.io/api/medical/icd10" },
+    {
+      "label": "2s（AI chat, upto）",
+      "seller": "2s",
+      "url": "https://2s.io/api/ai/chat",
+      "method": "POST",
+      "body": { "model": "openai/gpt-4o-mini", "messages": [{ "role": "user", "content": "hi" }], "max_tokens": 16 }
+    },
+    { "label": "Otto AI", "seller": "Otto AI", "url": "https://x402.ottoai.services/dns-lookup" },
+    { "label": "GoCreative", "seller": "GoCreative", "url": null, "note": "ホスト未特定" },
+    {
+      "label": "BlockRun（chat completions）",
+      "seller": "BlockRun",
+      "url": "https://blockrun.ai/api/v1/chat/completions",
+      "method": "POST",
+      "body": { "model": "openai/gpt-4o-mini", "messages": [{ "role": "user", "content": "hi" }], "max_tokens": 16 }
+    }
+  ]
+}

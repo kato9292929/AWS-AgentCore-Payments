@@ -17,6 +17,14 @@
 import { createHmac, randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { encodePacked, keccak256, verifyTypedData } from "viem";
+import {
+  UPTO_PROXY_ADDRESS,
+  UPTO_TYPES,
+  X402_ORG_FACILITATOR_ADDRESS,
+  uptoDomain,
+  uptoMessage,
+  type UptoAuthorization,
+} from "../src/rails/upto.js";
 
 const PORT = Number(process.env["MOCK_PORT"] ?? 8402);
 const HOST = "127.0.0.1";
@@ -34,14 +42,44 @@ const CHALLENGE_SECRET = randomBytes(32); // プロセス内のみ
  */
 const USED_NONCES = new Set<string>();
 
+/** 決済（シミュレーション）が成立した回数をパスごとに数える。AC-1 D3 の「二重に払ったか」の判定用。 */
+const SETTLEMENTS = new Map<string, number>();
+function countSettlement(path: string): void {
+  SETTLEMENTS.set(path, (SETTLEMENTS.get(path) ?? 0) + 1);
+}
+
 interface Resource {
   path: string;
   rail: "x402" | "mpp";
-  /** atomic（USDC 6 decimals） */
+  /** atomic（USDC 6 decimals）。upto では上限額。 */
   amount: string;
   description: string;
   content: unknown;
+  /** x402 の版。2 は PAYMENT-REQUIRED / PAYMENT-SIGNATURE / PAYMENT-RESPONSE ヘッダ。既定 1。 */
+  x402Version?: 1 | 2;
+  /** 既定の PAY_TO 以外に払わせる（payTo allowlist の検証用）。 */
+  payTo?: string;
+  /** settle（決済シミュレーション）の後、応答をこれだけ遅らせる（AC-1 D3）。 */
+  slowAfterSettleMs?: number;
+  /** /directory に載せるか。既定 true。AC 用の fixture は載せない（既存シナリオの discover を変えない）。 */
+  listed?: boolean;
+  /** MPP: 期限切れのチャレンジを出す（AC-1 D6）。 */
+  mppExpired?: boolean;
+  /** MPP: methodDetails.feePayer。undefined なら載せない（AC-1 D7）。 */
+  mppFeePayer?: boolean;
+  /** x402 の scheme。既定 exact。upto は v2 のみ（AgentCore docs の制約に合わせる）。 */
+  scheme?: "exact" | "upto";
+  /** upto: handler 実行後に請求する実額（atomic）。amount（上限額）以下。 */
+  uptoChargeAtomic?: string;
 }
+
+/**
+ * upto の settle 先。MOCK_UPTO_FACILITATOR を設定すると、署名をその facilitator の
+ * /verify と /settle に実際に投げる（x402.org/facilitator は Base Sepolia の upto に対応）。
+ * 未設定ならローカルで署名検証して決済をシミュレートする。
+ */
+const UPTO_FACILITATOR_URL = process.env["MOCK_UPTO_FACILITATOR"];
+const UPTO_FACILITATOR_ADDRESS = process.env["MOCK_UPTO_FACILITATOR_ADDRESS"] ?? X402_ORG_FACILITATOR_ADDRESS;
 
 const RESOURCES: Resource[] = [
   {
@@ -78,6 +116,89 @@ const RESOURCES: Resource[] = [
     amount: "10000",
     description: "mainnet を提示してくる売り手（実マネー禁止ガードの採取用）",
     content: { note: "should never be reachable" },
+  },
+  // ---- ここから AC-1〜AC-3 の fixture（/directory には載せない） ----
+  {
+    path: "/x402/v2/upto",
+    rail: "x402",
+    amount: "50000", // 上限 $0.05
+    description: "Testnet metered sample (x402 v2 upto, cap $0.05 / charge $0.01)",
+    content: { item: "metered", source: "mock-local" },
+    x402Version: 2,
+    scheme: "upto",
+    uptoChargeAtomic: process.env["MOCK_UPTO_CHARGE"] ?? "10000", // 実請求 $0.01
+    listed: false,
+  },
+  {
+    path: "/x402/nickel",
+    rail: "x402",
+    amount: "50000", // $0.05 — セッション上限 $0.20 に対して 5 回（AC-1 D4）
+    description: "Testnet $0.05 sample (x402 v1 exact, base-sepolia slug)",
+    content: { item: "nickel", source: "mock-local" },
+    listed: false,
+  },
+  {
+    path: "/x402/v2/nickel",
+    rail: "x402",
+    amount: "50000",
+    description: "Testnet $0.05 sample (x402 v2 exact, eip155:84532)",
+    content: { item: "nickel-v2", source: "mock-local" },
+    x402Version: 2,
+    listed: false,
+  },
+  {
+    path: "/x402/v2/weather",
+    rail: "x402",
+    amount: "10000",
+    description: "Testnet weather sample (x402 v2 exact, eip155:84532)",
+    content: { city: "Tokyo", tempC: 27, source: "mock-local", v: 2 },
+    x402Version: 2,
+    listed: false,
+  },
+  {
+    path: "/x402/slow",
+    rail: "x402",
+    amount: "10000",
+    description: "支払いを受けて settle した後、応答を遅らせる売り手（AC-1 D3）",
+    content: { note: "slow but paid", source: "mock-local" },
+    slowAfterSettleMs: Number(process.env["MOCK_SLOW_MS"] ?? 30_000),
+    listed: false,
+  },
+  {
+    path: "/x402/other-payto",
+    rail: "x402",
+    amount: "10000",
+    description: "allowlist に無い payTo を提示する売り手（AC-2 の allowlist 検証）",
+    content: { note: "should never be paid" },
+    payTo: "0x000000000000000000000000000000000000dEaD",
+    listed: false,
+  },
+  {
+    path: "/mpp/expired",
+    rail: "mpp",
+    amount: "20000",
+    description: "期限切れの MPP チャレンジ（AC-1 D6）",
+    content: { note: "never served" },
+    mppExpired: true,
+    listed: false,
+  },
+  {
+    path: "/mpp/no-sponsor",
+    rail: "mpp",
+    amount: "20000",
+    description: "feePayer=false の MPP チャレンジ（AC-1 D7）",
+    content: { note: "buyer pays gas" },
+    mppFeePayer: false,
+    listed: false,
+  },
+  {
+    path: "/mpp/sponsored",
+    rail: "mpp",
+    amount: "20000",
+    description: "feePayer=true の MPP チャレンジ（AC-1 D7 の対照）",
+    content: { note: "seller sponsors gas", source: "mock-local" },
+    mppFeePayer: true,
+    listed: false,
   },
   {
     path: "/mpp/quote",
@@ -196,19 +317,52 @@ function facilitatorSettle(nonce: string): { success: true; transaction: string 
 
 // ---------------- x402 ----------------
 
-function x402Challenge(res: ServerResponse, r: Resource, url: string): void {
+function payToOf(r: Resource): string {
+  return r.payTo ?? PAY_TO;
+}
+
+function x402Challenge(res: ServerResponse, r: Resource, url: string, error = "X-PAYMENT header is required"): void {
+  if (r.x402Version === 2) {
+    // v2: 支払い要求は PAYMENT-REQUIRED ヘッダ（base64 JSON）。network は CAIP-2、金額は amount。
+    const required = {
+      x402Version: 2,
+      error: error === "X-PAYMENT header is required" ? "PAYMENT-SIGNATURE header is required" : error,
+      resource: { url, description: r.description, mimeType: "application/json" },
+      accepts: [
+        {
+          scheme: r.scheme ?? "exact",
+          network: `eip155:${CHAIN_ID}`,
+          // upto では上限額
+          amount: r.amount,
+          asset: USDC,
+          payTo: payToOf(r),
+          maxTimeoutSeconds: 60,
+          extra:
+            r.scheme === "upto"
+              ? { name: "USDC", version: "2", facilitatorAddress: UPTO_FACILITATOR_ADDRESS }
+              : { name: "USDC", version: "2" },
+        },
+      ],
+    };
+    res.writeHead(402, {
+      "content-type": "application/json",
+      "payment-required": Buffer.from(JSON.stringify(required), "utf8").toString("base64"),
+    });
+    res.end(JSON.stringify({}));
+    return;
+  }
   // 実マネー禁止ガードを踏ませるための fixture。ここだけ mainnet を提示する。
   const network = r.path === "/x402/mainnet-trap" ? "base" : NETWORK;
   const body = {
     x402Version: 1,
-    error: "X-PAYMENT header is required",
+    error,
     accepts: [
       {
         scheme: "exact",
         network,
         maxAmountRequired: r.amount,
         asset: USDC,
-        payTo: PAY_TO,
+        payTo: payToOf(r),
         resource: url,
         description: r.description,
         mimeType: "application/json",
@@ -223,7 +377,7 @@ function x402Challenge(res: ServerResponse, r: Resource, url: string): void {
 }
 
 async function handleX402(req: IncomingMessage, res: ServerResponse, r: Resource, url: string): Promise<void> {
-  const header = req.headers["x-payment"];
+  const header = r.x402Version === 2 ? req.headers["payment-signature"] : req.headers["x-payment"];
   if (!header || typeof header !== "string") {
     log("402", r.path);
     x402Challenge(res, r, url);
@@ -232,8 +386,10 @@ async function handleX402(req: IncomingMessage, res: ServerResponse, r: Resource
 
   let payment: {
     x402Version: number;
-    scheme: string;
-    network: string;
+    scheme?: string;
+    network?: string;
+    /** v2: 選んだ accept をそのまま echo する */
+    accepted?: { scheme: string; network: string; amount: string; payTo: string };
     payload: {
       signature: `0x${string}`;
       authorization: {
@@ -254,13 +410,18 @@ async function handleX402(req: IncomingMessage, res: ServerResponse, r: Resource
     return;
   }
 
+  if (r.scheme === "upto") {
+    await settleUpto(res, r, url, payment as unknown as UptoPayment);
+    return;
+  }
+
   const a = payment.payload.authorization;
   if (a.value !== r.amount) {
     log("402 (amount mismatch)", a.value, "!=", r.amount);
     x402Challenge(res, r, url);
     return;
   }
-  if (a.to.toLowerCase() !== PAY_TO.toLowerCase()) {
+  if (a.to.toLowerCase() !== payToOf(r).toLowerCase()) {
     x402Challenge(res, r, url);
     return;
   }
@@ -295,13 +456,140 @@ async function handleX402(req: IncomingMessage, res: ServerResponse, r: Resource
   }
 
   const settle = facilitatorSettle(a.nonce);
-  const settlement = { success: true, transaction: settle.transaction, network: NETWORK, payer: a.from };
+  countSettlement(r.path);
+  const settlement = {
+    success: true,
+    transaction: settle.transaction,
+    network: r.x402Version === 2 ? `eip155:${CHAIN_ID}` : NETWORK,
+    payer: a.from,
+    amount: a.value,
+  };
   log("200", r.path, "settled(simulated)", settle.transaction.slice(0, 18));
+  if (r.slowAfterSettleMs) {
+    // 支払いは受け取って決済済み。応答だけ返さない（買い手のタイムアウト → 再送を誘う）
+    log("slow", r.path, `${r.slowAfterSettleMs}ms after settle`);
+    await new Promise((resolve) => setTimeout(resolve, r.slowAfterSettleMs));
+    if (res.destroyed) {
+      log("client gave up before response", r.path);
+      return;
+    }
+  }
   res.writeHead(200, {
     "content-type": "application/json",
-    "x-payment-response": Buffer.from(JSON.stringify(settlement), "utf8").toString("base64"),
+    [r.x402Version === 2 ? "payment-response" : "x-payment-response"]: Buffer.from(
+      JSON.stringify(settlement),
+      "utf8",
+    ).toString("base64"),
   });
   res.end(JSON.stringify({ ...(r.content as object), paid: true, settlement_simulated: true }));
+}
+
+// ---------------- x402 upto ----------------
+
+interface UptoPayment {
+  x402Version: number;
+  accepted?: Record<string, unknown>;
+  payload: { signature: `0x${string}`; permit2Authorization: UptoAuthorization };
+}
+
+/** 使用済みの Permit2 nonce（オンチェーンなら Permit2 の nonce bitmap が弾く）。 */
+const USED_PERMIT2_NONCES = new Set<string>();
+
+async function settleUpto(res: ServerResponse, r: Resource, url: string, payment: UptoPayment): Promise<void> {
+  const reject = (reason: string): void => {
+    log("402 (upto)", reason);
+    x402Challenge(res, r, url, reason);
+  };
+  const auth = payment.payload?.permit2Authorization;
+  if (!auth) return reject("missing permit2Authorization");
+  if (auth.permitted.amount !== r.amount) return reject("permitted.amount != cap");
+  if (auth.permitted.token.toLowerCase() !== USDC.toLowerCase()) return reject("wrong token");
+  if (auth.witness.to.toLowerCase() !== payToOf(r).toLowerCase()) return reject("witness.to != payTo");
+  if (auth.spender.toLowerCase() !== UPTO_PROXY_ADDRESS.toLowerCase()) return reject("spender != upto proxy");
+  if (auth.witness.facilitator.toLowerCase() !== UPTO_FACILITATOR_ADDRESS.toLowerCase()) {
+    return reject("witness.facilitator != facilitatorAddress");
+  }
+  if (BigInt(auth.deadline) < BigInt(Math.floor(Date.now() / 1000))) return reject("deadline passed");
+  if (USED_PERMIT2_NONCES.has(auth.nonce)) return reject("permit2 nonce already used");
+
+  const charge = r.uptoChargeAtomic ?? r.amount;
+  if (BigInt(charge) > BigInt(auth.permitted.amount)) return reject("settlement exceeds amount");
+
+  let settlement: Record<string, unknown>;
+  if (UPTO_FACILITATOR_URL) {
+    // 実 facilitator: /verify は上限額、/settle は実額で paymentRequirements.amount を渡す（spec）
+    const requirements = { ...(payment.accepted ?? {}), amount: r.amount };
+    const call = async (op: "verify" | "settle", amount: string): Promise<Record<string, unknown>> => {
+      const resp = await fetch(`${UPTO_FACILITATOR_URL}/${op}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          x402Version: 2,
+          paymentPayload: payment,
+          paymentRequirements: { ...requirements, amount },
+        }),
+      });
+      const text = await resp.text();
+      log(`facilitator /${op}`, resp.status, text.slice(0, 300));
+      try {
+        return { httpStatus: resp.status, ...(JSON.parse(text) as Record<string, unknown>) };
+      } catch {
+        return { httpStatus: resp.status, raw: text.slice(0, 300) };
+      }
+    };
+    const v = await call("verify", r.amount);
+    if (v["isValid"] !== true) {
+      res.writeHead(402, { "content-type": "application/json" });
+      res.end(JSON.stringify({ x402Version: 2, error: "facilitator_verify_failed", facilitator: v }));
+      return;
+    }
+    const st = await call("settle", charge);
+    if (st["success"] !== true) {
+      res.writeHead(402, { "content-type": "application/json" });
+      res.end(JSON.stringify({ x402Version: 2, error: "facilitator_settle_failed", facilitator: st }));
+      return;
+    }
+    settlement = st;
+  } else {
+    let ok = false;
+    try {
+      ok = await verifyTypedData({
+        address: auth.from,
+        domain: uptoDomain(CHAIN_ID),
+        types: UPTO_TYPES,
+        primaryType: "PermitWitnessTransferFrom",
+        message: uptoMessage(auth),
+        signature: payment.payload.signature,
+      });
+    } catch (err) {
+      log("upto verify threw:", (err as Error).message);
+    }
+    if (!ok) return reject("invalid_signature");
+    USED_PERMIT2_NONCES.add(auth.nonce);
+    countSettlement(r.path);
+    const tx = keccak256(encodePacked(["string", "uint256"], ["mock-upto-settlement", BigInt(auth.nonce)]));
+    settlement = {
+      success: true,
+      // 実額 0 なら tx は出ない（spec）
+      transaction: charge === "0" ? "" : tx,
+      network: `eip155:${CHAIN_ID}`,
+      payer: auth.from,
+      amount: charge,
+    };
+  }
+  log("200", r.path, `upto cap=${r.amount} charged=${String(settlement["amount"] ?? charge)}`);
+  res.writeHead(200, {
+    "content-type": "application/json",
+    "payment-response": Buffer.from(JSON.stringify(settlement), "utf8").toString("base64"),
+  });
+  res.end(
+    JSON.stringify({
+      ...(r.content as object),
+      paid: true,
+      settlement_simulated: !UPTO_FACILITATOR_URL,
+      charged_atomic: settlement["amount"] ?? charge,
+    }),
+  );
 }
 
 // ---------------- MPP ----------------
@@ -312,9 +600,16 @@ function mppChallenge(res: ServerResponse, r: Resource): void {
     currency: USDC,
     recipient: PAY_TO,
     description: r.description,
-    methodDetails: { chainId: CHAIN_ID, credentialTypes: ["authorization"], decimals: 6 },
+    methodDetails: {
+      chainId: CHAIN_ID,
+      credentialTypes: ["authorization"],
+      decimals: 6,
+      ...(r.mppFeePayer !== undefined ? { feePayer: r.mppFeePayer } : {}),
+    },
   });
-  const expires = new Date(Date.now() + 5 * 60_000).toISOString().replace(/\.\d{3}Z$/, "Z");
+  // D6: 期限切れのチャレンジ（1 分前に切れている）
+  const expiresAt = r.mppExpired ? Date.now() - 60_000 : Date.now() + 5 * 60_000;
+  const expires = new Date(expiresAt).toISOString().replace(/\.\d{3}Z$/, "Z");
   const params: Record<string, string> = {
     realm: REALM,
     method: "evm",
@@ -449,6 +744,7 @@ async function handleMpp(req: IncomingMessage, res: ServerResponse, r: Resource)
   }
 
   const settle = facilitatorSettle(credential.payload.nonce);
+  countSettlement(r.path);
   const receipt = {
     status: "success",
     method: "evm",
@@ -474,12 +770,17 @@ const server = createServer((req, res) => {
     res.end(JSON.stringify({ ok: true, resources: RESOURCES.map((r) => r.path) }));
     return;
   }
+  if (path === "/stats") {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ settlements: Object.fromEntries(SETTLEMENTS) }));
+    return;
+  }
   if (path === "/directory") {
     // MPP/x402 ディレクトリ相当。discover が引ける形で返す。
     res.writeHead(200, { "content-type": "application/json" });
     res.end(
       JSON.stringify({
-        endpoints: RESOURCES.map((r) => ({
+        endpoints: RESOURCES.filter((r) => r.listed !== false).map((r) => ({
           id: r.path.replace(/\//g, "-").slice(1),
           rail: r.rail,
           endpoint: `http://${REALM}${r.path}`,

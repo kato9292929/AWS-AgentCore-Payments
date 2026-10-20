@@ -14,8 +14,15 @@
     "provision": "tsx scripts/provision-agentcore.mts",
     "check:ga": "tsx scripts/check-ga-shapes.ts",
     "check:redaction": "tsx scripts/check-redaction.ts",
-    "check": "npm run typecheck && npm run check:tools && npm run check:ga && npm run check:redaction && npm run check:facilitator && npm run check:secrets",
-    "check:facilitator": "tsx scripts/check-facilitator.ts"
+    "check": "npm run typecheck && npm run check:tools && npm run check:ga && npm run check:redaction && npm run check:guards && npm run check:facilitator && npm run check:secrets && npm run check:keys",
+    "check:facilitator": "tsx scripts/check-facilitator.ts",
+    "ac1": "tsx scripts/ac1/run.ts",
+    "ac3": "tsx scripts/ac3/run.ts",
+    "check:guards": "tsx scripts/check-guards.ts",
+    "check:keys": "tsx scripts/check-keys-everywhere.ts",
+    "ac4:probe": "tsx src/cli.ts --probe-only --label=ac4-probe --run-id=probe --out=artifacts/ac4 --endpoints=@config/probe-targets.json",
+    "ac4:normalize": "tsx scripts/ac4/normalize.ts",
+    "check:py": "python3 scripts/ac2/check_payto_guard.py"
   },
   "engines": {
     "node": ">=20"

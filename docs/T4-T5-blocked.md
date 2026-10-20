@@ -1,5 +1,47 @@
 # T4 / T5: 公開テストエンドポイントへの実払いが本セッションで完了できない理由
 
+## 2026-10-20 更新（AC-2）: 一部解消。残りは AgentCore の資格情報だけ
+
+```
+塞がれていたもの                 2026-08                          2026-10-20
+-------------------------------  -------------------------------  ------------------------------------------------------------
+売り手側 egress（x402.org 等）    403 host_not_allowed              解消。x402.org/protected から 402 を取得（artifacts/ac4/probe/）
+docs.aws.amazon.com              403                              解消。AgentCore payments の docs を一次確認（T1 の未確定点を更新）
+売り手の選定                     未定                             x402.org/protected（下の「AC-2 の売り手」）
+AgentCore の資格情報             コントロールプレーンが無効トークン  未解消。env の AWS 鍵は InvalidClientTokenId（STS / control 両方）
+入金経路                         Privy の登録が止まっている         Coinbase の Quick Create に切り替え（Privy は日本で作れない場合の予備）
+実払いの一周（402→200, settle）  未実施                           未実施（資格情報待ち）。結線は LocalPlane と模擬売り手で確認済み
+```
+
+**まだ「解消済み」ではない。** AgentCore で一周して tx がオンチェーンで確認できたら、この節を「解消済み」に書き換える
+（`docs/AC2-results.md` が実測で埋まったとき）。
+
+### AC-2 の売り手
+
+- **https://x402.org/protected**（GET）。x402 v2 の `PAYMENT-REQUIRED` ヘッダで
+  `exact / eip155:84532 / amount 10000（$0.01）/ asset 0x036CbD53…CF7e（Base Sepolia USDC）/ payTo 0x209693Bc…287C` を返す。
+  Solana devnet の accept も併記されるが、instrument が ETHEREUM なので選ばれない（さらに payTo allowlist で削る）。
+- 選定理由: x402 の仕様を持つ x402.org が運営する公式デモで、testnet 専用・少額・安定している。MPP は返さない。
+- 予備: `https://x402.payai.network/api/base-sepolia/paid-content`（PayAI）、`https://x402.nodeventures.io/check`。
+- egress に要るホスト: `x402.org`、`bedrock-agentcore.us-east-1.amazonaws.com`、`bedrock-agentcore-control.us-east-1.amazonaws.com`、
+  （オンチェーン照合用）`sepolia.base.org`、（CloudWatch 採取用）`logs.us-east-1.amazonaws.com`・`monitoring.us-east-1.amazonaws.com`。
+- 支払い先 allowlist（`config/payto-allowlist.json`）に x402.org の payTo × eip155:84532 だけを入れてある。
+  それ以外の payTo には署名に進まない（`run-all` の `payto-not-allowlisted`、`npm run check:py`）。
+
+### Coinbase の Quick Create（docs で確認したこと）
+
+- コンソールの Create payment manager → Coinbase → **Quick create** が、Payment Manager・Coinbase connector・credential provider
+  （CDP の API キーと Wallet Secret）をサービス側で作る。鍵は人間にも見えない。instrument と session は作らない。
+- **CDP アカウントは要る**（サインイン／サインアップと CDP プロジェクトの選択がある）。Wallet Secret が既にあるプロジェクトでは失敗する。
+- AWS Marketplace の「Coinbase Wallets for AgentCore Payments」の購読が要る（無いと SubscriptionRequiredException）。
+- Quick create は Coinbase のみ。Stripe（Privy）は manual のみ。
+- 続き（instrument と session）は `npm run provision -- --mode=manual --vendor=coinbase` に、コンソールで作られた
+  `AGENTCORE_PAYMENT_MANAGER_ARN` と `AGENTCORE_PAYMENT_CONNECTOR_ID` を env で渡して作る（既存を READY 確認するだけで作り直さない）。
+
+---
+
+以下は 2026-08 時点の記録（経緯として残す）。
+
 結論から書く。**x402 経路・MPP 経路とも、HTTP の一周（402 → 署名 → 再送 → 200 →
 receipt）はコードとして動いており、ログも採れている。ただし相手はローカルの模擬売り手であって、
 mpp.dev でも Exa でもない。** AgentCore の `ProcessPayment` も実行できていない。

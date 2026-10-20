@@ -1,0 +1,14 @@
+{
+  "$comment": [
+    "AC-3b 専用（mainnet）。scripts/ac3/blockrun_mainnet.py だけが読む。ハーネス本体（src/）は読まない。",
+    "BlockRun の payTo は 2026-10-20 の 402（POST /api/v1/chat/completions）で確認したもの。",
+    "実行前に --probe-only で再確認し、変わっていたら署名に進まない（allowlist 不一致で止まる）。"
+  ],
+  "entries": [
+    {
+      "label": "BlockRun（Base mainnet）",
+      "payTo": "0xe9030014F5DAe217d0A152f02A043567b16c1aBf",
+      "networks": ["eip155:8453"]
+    }
+  ]
+}

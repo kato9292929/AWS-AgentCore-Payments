@@ -1,0 +1,15 @@
+{
+  "$comment": [
+    "支払い先（payTo）の allowlist。ここに無い payTo には署名に進まない（src/guard/payToAllowlist.ts）。",
+    "network も一緒に縛る。同じ payTo でも mainnet の accept には進まない。",
+    "AgentCore / Strands プラグインには支払い先を縛る設定が無いので、これはハーネス側にしか無い拘束。",
+    "エントリを足すときは、売り手の 402 を --probe-only で取って payTo を確かめてから書く。"
+  ],
+  "entries": [
+    {
+      "label": "mock-local（ローカル模擬売り手）と x402.org/protected（AC-2 の売り手。2026-10-20 の 402 で同じ payTo を確認）",
+      "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+      "networks": ["base-sepolia", "eip155:84532"]
+    }
+  ]
+}

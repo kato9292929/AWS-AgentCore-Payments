@@ -14,6 +14,11 @@
 
 実行:
     python examples/pay_with_strands.py "<有料エンドポイントのURL>"
+    python examples/pay_with_strands.py --scripted "<URL>"   # LLM を使わず台本で http_request を 1 回呼ぶ
+
+支払い先の allowlist（AC-2）:
+    config/payto-allowlist.json に無い (payTo, network) は、ProcessPayment に渡す前に 402 から削る。
+    1 件も残らなければ署名しない（examples/payto_guard.py）。
 
 --------------------------------------------------------------------------
 testnet に留める仕組みは「無い」（重要・実測）
@@ -52,19 +57,48 @@ Step 4 のフォールバックに落ちるため。**両方の表記を入れ�
 ＝ このリポジトリの src/guard/network.ts（allowlist・deny by default）に戻ることになる。
 """
 
+import json
 import os
 import sys
+from pathlib import Path
 
 from bedrock_agentcore.payments.integrations.strands import (
     AgentCorePaymentsPlugin,
     AgentCorePaymentsPluginConfig,
 )
+from bedrock_agentcore.payments import PaymentError
 from strands import Agent
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from payto_guard import PayToAllowlist, PayToRejected  # noqa: E402
 
 # slug と CAIP-2 の両方を入れる。片方だけだと文字列比較が外れて
 # Step 4 のフォールバック（＝先頭の accept、mainnet になりうる）に落ちる。
 # これは「優先順」であって「制限」ではない（冒頭の注意を参照）。
 TESTNET_PREFERRED = ["base-sepolia", "eip155:84532", "sepolia", "eip155:11155111"]
+
+
+class GuardedPaymentsPlugin(AgentCorePaymentsPlugin):
+    """署名の直前に 402 を payTo allowlist で削るプラグイン。
+
+    AgentCorePaymentsPlugin._process_payment_required_request は 402 をそのまま
+    generate_payment_header に渡す。その手前で削るだけで、他の挙動は変えない。
+    """
+
+    def __init__(self, config, allowlist: PayToAllowlist):
+        super().__init__(config=config)
+        self.allowlist = allowlist
+        self.guard_log: list = []
+
+    def _process_payment_required_request(self, payment_required_request):
+        try:
+            filtered, report = self.allowlist.filter_402(payment_required_request)
+        except PayToRejected as e:
+            self.guard_log.append({"allowed": False, "reason": str(e)})
+            # PaymentError はプラグインが「失敗」として記録し、再送しない
+            raise PaymentError(f"payTo allowlist: {e}") from e
+        self.guard_log.append({"allowed": True, **report})
+        return super()._process_payment_required_request(filtered)
 
 
 def require(name: str) -> str:
@@ -75,9 +109,11 @@ def require(name: str) -> str:
 
 
 def main() -> int:
-    if len(sys.argv) < 2:
-        sys.exit("使い方: python examples/pay_with_strands.py <有料エンドポイントのURL>")
-    url = sys.argv[1]
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    scripted = "--scripted" in sys.argv
+    if not args:
+        sys.exit("使い方: python examples/pay_with_strands.py [--scripted] <有料エンドポイントのURL>")
+    url = args[0]
 
     config = AgentCorePaymentsPluginConfig(
         payment_manager_arn=require("AGENTCORE_PAYMENT_MANAGER_ARN"),
@@ -101,9 +137,17 @@ def main() -> int:
     # provide_http_request を既定(True)のままにしており、そのままだと
     # プラグイン内蔵の http_request と名前が衝突して ValueError になる。
     # ここでは外部ツールを渡さず、プラグイン内蔵の http_request だけを使う。
+    plugin = GuardedPaymentsPlugin(config=config, allowlist=PayToAllowlist.load())
+    model = None
+    if scripted:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "py"))
+        from scripted_model import ScriptedModel
+
+        model = ScriptedModel([{"tool": "http_request", "input": {"url": url}}, {"text": "done"}])
     agent = Agent(
         system_prompt="有料APIを呼べるアシスタント。取得した内容をそのまま報告する。",
-        plugins=[AgentCorePaymentsPlugin(config=config)],
+        plugins=[plugin],
+        **({"model": model} if model is not None else {}),
     )
 
     # 402 が返るとプラグインが ProcessPayment → 支払いヘッダ付きで再送する。
@@ -115,6 +159,7 @@ def main() -> int:
 
     result = agent(f"{url} を http_request で取得して、返ってきた内容をそのまま報告して。")
     print(result)
+    print("payTo guard:", json.dumps(plugin.guard_log, ensure_ascii=False))
     return 0
 
 
