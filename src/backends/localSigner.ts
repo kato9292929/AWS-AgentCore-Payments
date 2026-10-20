@@ -7,6 +7,7 @@ import { assertTestnetChainId, assertTestnetNetwork } from "../guard/network.js"
 import type { Recorder } from "../log/recorder.js";
 import type { PaymentDemand } from "../types.js";
 import type { PaymentBackend, Proof } from "./types.js";
+import { UPTO_PROXY_ADDRESS, UPTO_TYPES, uptoDomain, uptoMessage, type UptoAuthorization } from "../rails/upto.js";
 
 /**
  * AgentCore を呼べない環境（AWS 資格情報なし / egress 制限）で、
@@ -62,18 +63,58 @@ export class LocalSignerBackend implements PaymentBackend {
       const req = demand.raw.requirements as {
         asset: string;
         payTo: string;
-        maxAmountRequired: string;
+        maxAmountRequired?: string;
+        amount?: string;
         maxTimeoutSeconds?: number;
-        extra?: { name?: string; version?: string };
+        extra?: { name?: string; version?: string; facilitatorAddress?: string };
       };
       const chainId = x402NetworkToChainId(demand.network);
       assertTestnetChainId(chainId);
+
+      if (demand.scheme === "upto") {
+        // upto: Permit2 の PermitWitnessTransferFrom に上限額で署名する（実額は売り手が settle で決める）
+        const facilitator = req.extra?.facilitatorAddress;
+        if (!facilitator) throw new Error("upto: extra.facilitatorAddress が無い（spec 上必須）");
+        const now = Math.floor(Date.now() / 1000);
+        const auth: UptoAuthorization = {
+          permitted: { token: req.asset as `0x${string}`, amount: String(req.amount ?? req.maxAmountRequired) },
+          from: account.address,
+          spender: UPTO_PROXY_ADDRESS,
+          nonce: BigInt(toHex(randomBytes32())).toString(),
+          deadline: String(now + (req.maxTimeoutSeconds ?? 60)),
+          witness: { to: req.payTo as `0x${string}`, facilitator: facilitator as `0x${string}`, validAfter: "0" },
+        };
+        const signature = await account.signTypedData({
+          domain: uptoDomain(chainId),
+          types: UPTO_TYPES,
+          primaryType: "PermitWitnessTransferFrom",
+          message: uptoMessage(auth),
+        });
+        this.rec.event("localsigner.proof.generated", {
+          rail: "x402",
+          scheme: "upto",
+          network: demand.network,
+          chainId,
+          cap_atomic: auth.permitted.amount,
+          facilitator,
+          signatureLength: signature.length,
+          note: "Permit2 への approve はしていない（local-signer はオンチェーンに触れない）",
+        });
+        return {
+          rail: "x402",
+          version: String(demand.raw.x402Version),
+          payload: { signature, permit2Authorization: auth },
+          processPaymentId: `local-${randomUUID()}`,
+          status: "PROOF_GENERATED",
+          outcome: "proof_only",
+        };
+      }
 
       const now = Math.floor(Date.now() / 1000);
       const authorization = {
         from: account.address,
         to: req.payTo as `0x${string}`,
-        value: BigInt(req.maxAmountRequired),
+        value: BigInt(req.amount ?? req.maxAmountRequired ?? "0"),
         validAfter: BigInt(now - 60),
         validBefore: BigInt(now + (req.maxTimeoutSeconds ?? 60)),
         nonce: toHex(randomBytes32()) as `0x${string}`,
@@ -241,7 +282,9 @@ export function x402NetworkToChainId(network: string): number {
     "ethereum-sepolia": 11155111,
     "avalanche-fuji": 43113,
   };
-  const id = map[network.toLowerCase()];
+  // v2 は CAIP-2 で来る。testnet かどうかは呼び出し側の assertTestnetChainId で見る。
+  const caip = /^eip155:(\d+)$/.exec(network.trim().toLowerCase());
+  const id = caip ? Number(caip[1]) : map[network.toLowerCase()];
   if (id === undefined) throw new Error(`未知の network: ${network}（testnet と確認できないため停止）`);
   return id;
 }

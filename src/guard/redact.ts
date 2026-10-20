@@ -44,6 +44,7 @@ const HASH_FIELD_ALLOWLIST = new Set([
   "transaction",
   "transactionhash",
   "txhash",
+  "tx_hash",
   "tx",
   "hash",
   "blockhash",

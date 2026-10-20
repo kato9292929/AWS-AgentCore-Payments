@@ -115,6 +115,38 @@ const SCENARIOS: Scenario[] = [
     expect: "halt",
     purpose: "7節: mainnet を提示されたら決済せずセッションごと停止",
   },
+  // ---- ここから AC-1〜AC-3 で足したもの（上の 11 本は変えていない） ----
+  {
+    label: "x402-v2-success",
+    args: ["--query=x402", "--rail=x402", "--endpoint=http://127.0.0.1:8402/x402/v2/weather", "--approve=yes"],
+    expect: "success",
+    purpose: "AC-2: x402 v2（PAYMENT-REQUIRED / PAYMENT-SIGNATURE / PAYMENT-RESPONSE、eip155:84532）の一周",
+  },
+  {
+    label: "payto-not-allowlisted",
+    args: ["--query=x402", "--rail=x402", "--endpoint=http://127.0.0.1:8402/x402/other-payto", "--approve=yes"],
+    expect: "declined",
+    purpose: "AC-2: allowlist に無い payTo には署名に進まない（ProcessPayment を呼ばない）",
+  },
+  {
+    label: "upto-reserve-settle",
+    args: ["--query=x402", "--rail=x402", "--endpoint=http://127.0.0.1:8402/x402/v2/upto", "--approve=yes"],
+    expect: "success",
+    purpose: "AC-3a: upto は上限額($0.05)で予約し、settle の実額($0.01)で確定して差額を解放する",
+  },
+  {
+    label: "agentcore-only-shadow",
+    args: [
+      "--query=premium",
+      "--rail=x402",
+      "--endpoint=http://127.0.0.1:8402/x402/premium",
+      "--approve=yes",
+      "--guards=agentcore-only",
+    ],
+    expect: "success",
+    purpose:
+      "AC-1: --guards=agentcore-only では自前の上限が判定だけ残して止めない（local-signer なので止める者がいない＝通る）",
+  },
 ];
 
 interface RunOutcome {
@@ -209,6 +241,15 @@ const collected = results.map((r) => {
       process_payment_called: has("pay.proof"),
       approval_scope_recorded: has("guard.approval.granted") || has("guard.approval.covered"),
       resend_rejected: has("pay.resend_rejected"),
+      payto_decision: (() => {
+        const e = events.find((x) => x["type"] === "guard.payto.decision");
+        return e ? (e["allowed"] ? "allowed" : String(e["reason"])) : null;
+      })(),
+      upto_settled: has("guard.limit.settled"),
+      harness_limit_enforced: (() => {
+        const e = events.find((x) => x["type"] === "guard.limit.decision");
+        return e ? e["enforced"] !== false : null;
+      })(),
     },
   };
 });
@@ -219,8 +260,8 @@ writeFileSync(
     {
       generatedAt: new Date().toISOString(),
       note:
-        "merchant は mock-local（ローカル模擬売り手）。公開 testnet エンドポイントへの到達は " +
-        "本セッションの egress ポリシーで不可。docs/T4-T5-blocked.md を参照。",
+        "merchant は mock-local（ローカル模擬売り手）。公開 testnet 売り手（x402.org）への egress は 2026-10-20 時点で開いているが、" +
+        "AgentCore の資格情報が無いため実払いは未実施。docs/T4-T5-blocked.md と docs/AC2-results.md を参照。",
       scenarios: collected,
       allExpected: collected.every((c) => c.ok),
     },

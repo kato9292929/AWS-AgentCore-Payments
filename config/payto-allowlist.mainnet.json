@@ -1,0 +1,21 @@
+{
+  "$comment": [
+    "AC-3b 専用（mainnet）。scripts/ac3/ac3b_mainnet.py だけが読む。ハーネス本体（src/）は読まない。",
+    "ac3b_mainnet.py は売り手ごとに seller が一致するエントリだけを使う（2s を払うときは 2s の payTo だけが通る）。",
+    "payTo は 2026-10-20 の 402 で確認したもの。実行時に 402 の payTo が変わっていたら allowlist 不一致で署名しない。"
+  ],
+  "entries": [
+    {
+      "seller": "2s",
+      "label": "2s（POST /api/ai/chat。upto の実測対象）",
+      "payTo": "0x2b6D4988Db4723E6908Db86Ab2b8dFBc51FC32C5",
+      "networks": ["eip155:8453"]
+    },
+    {
+      "seller": "blockrun",
+      "label": "BlockRun（POST /api/v1/chat/completions。exact の参照値）",
+      "payTo": "0xe9030014F5DAe217d0A152f02A043567b16c1aBf",
+      "networks": ["eip155:8453"]
+    }
+  ]
+}

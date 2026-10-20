@@ -34,6 +34,8 @@ export class AgentCoreBackend implements PaymentBackend {
   readonly kind = "agentcore" as const;
   private readonly client: BedrockAgentCoreClient;
   private sessionId: string | undefined;
+  /** upto の Permit2 approve をこのセッションで既に出したか（AC-3a: 初回だけ渡す）。 */
+  private permit2Approved = false;
 
   constructor(
     private readonly cfg: HarnessConfig,
@@ -76,12 +78,19 @@ export class AgentCoreBackend implements PaymentBackend {
   async processPayment(demand: PaymentDemand, opts: { clientToken: string }): Promise<Proof> {
     if (!this.sessionId) throw new Error("openSession を先に呼ぶこと");
 
+    // upto の初回だけ permit2AllowanceLimit を渡す。サービスが署名前にオンチェーンで approve を出す
+    // （ガス代はウォレットのネイティブトークン）。approve は「加算」ではなく「設定」なので 2 回目以降は渡さない。
+    // exact に渡すと ValidationException（API リファレンス）。
+    const permit2Limit = process.env["AGENTCORE_PERMIT2_ALLOWANCE_LIMIT"];
+    const sendPermit2 =
+      demand.rail === "x402" && demand.scheme === "upto" && permit2Limit !== undefined && !this.permit2Approved;
     const input =
       demand.raw.kind === "x402"
         ? {
             cryptoX402: {
               version: String(demand.raw.x402Version),
               payload: buildX402Payload(demand) as never,
+              ...(sendPermit2 ? { permit2AllowanceLimit: permit2Limit } : {}),
             },
           }
         : {
@@ -103,6 +112,8 @@ export class AgentCoreBackend implements PaymentBackend {
       paymentSessionId: this.sessionId,
       amountAtomic: demand.amountAtomic.toString(),
       network: demand.network,
+      scheme: demand.scheme,
+      ...(sendPermit2 ? { permit2AllowanceLimit: permit2Limit } : {}),
     });
 
     const res = await this.client.send(
@@ -119,6 +130,7 @@ export class AgentCoreBackend implements PaymentBackend {
       }),
     );
 
+    if (sendPermit2) this.permit2Approved = true;
     const outcome = classifyPaymentStatus(res.status);
     this.rec.event("agentcore.process_payment.response", {
       processPaymentId: res.processPaymentId,
@@ -190,6 +202,9 @@ export function buildX402Payload(demand: PaymentDemand): Record<string, unknown>
   const req = demand.raw.requirements as Record<string, unknown>;
   const mode = process.env["AGENTCORE_X402_PAYLOAD_MODE"] ?? "quickstart";
   if (mode === "requirements") return req;
+  // v2 の accept は最初から CAIP-2 + amount の形。bedrock-agentcore 1.24.2 の
+  // generate_payment_header も選んだ accept を verbatim で渡している（upto の extra.facilitatorAddress も残る）。
+  if (demand.raw.x402Version >= 2) return req;
 
   return {
     scheme: demand.scheme,

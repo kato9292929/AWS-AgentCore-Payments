@@ -73,6 +73,7 @@ const demand: PaymentDemand = {
   raw: {
     kind: "x402",
     x402Version: 1,
+    transport: "v1-body",
     requirements: {
       scheme: "exact",
       network: "base-sepolia",

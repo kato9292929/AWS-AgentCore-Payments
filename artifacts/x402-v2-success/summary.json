@@ -1,0 +1,68 @@
+{
+  "runId": "x402-v2-success",
+  "label": "x402-v2-success",
+  "config": {
+    "region": "us-east-1",
+    "chain": "BASE_SEPOLIA",
+    "facilitator": "https://x402.org/facilitator",
+    "testnet": true,
+    "per_call_max_usd": "0.050000",
+    "session_max_usd": "0.200000",
+    "auto_approve": false
+  },
+  "backend": "local-signer",
+  "planner": "scripted",
+  "tools_exposed_to_model": [
+    "discover",
+    "pay"
+  ],
+  "steps": 3,
+  "results": [
+    {
+      "status": "success",
+      "receipt": {
+        "reference": "0xbb80d612d15a4434a612527fb6004be88e23f6072d8a8412669e2cef27b8578e",
+        "amount": "10000",
+        "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "network": "eip155:84532",
+        "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+        "rail": "x402",
+        "scheme": "exact",
+        "settledAmount": "10000",
+        "timestamp": "2026-10-20T06:12:30.794Z",
+        "proofSource": "local-signer",
+        "paymentStatus": "PROOF_GENERATED",
+        "settlementConfirmedBy": "merchant-receipt",
+        "testnet": true,
+        "merchant": "mock-local",
+        "approval": {
+          "approver": "harness-operator",
+          "at": "2026-10-20T06:12:30.774Z",
+          "scope": "http://127.0.0.1:8402 まで 0.010000 USD/回（今セッション内）"
+        }
+      }
+    }
+  ],
+  "limits": {
+    "spent_usd": "0.010000",
+    "reserved_usd": "0.000000",
+    "remaining_usd": "0.190000",
+    "per_call_max_usd": "0.050000",
+    "session_max_usd": "0.200000",
+    "guards": "both"
+  },
+  "approval_grants": [
+    {
+      "origin": "http://127.0.0.1:8402",
+      "ceiling_usd": "0.010000",
+      "approver": "harness-operator",
+      "at": "2026-10-20T06:12:30.774Z"
+    }
+  ],
+  "duplicate_guard": {
+    "max_process_payment_attempts": 1,
+    "max_resend_attempts": 1,
+    "tracked_demands": 1,
+    "settled_fingerprints": 1
+  }
+}

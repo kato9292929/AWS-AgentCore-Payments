@@ -1,0 +1,41 @@
+{
+  "case": "D1",
+  "question": "同じ 402・同じ clientToken で 2 回: 2 回目が同じ processPaymentId を返すか、予算は 1 回分か",
+  "executed": false,
+  "startedAt": "2026-10-20T06:12:44.848Z",
+  "region": "us-east-1",
+  "seller": [
+    "http://127.0.0.1:8402/x402/weather"
+  ],
+  "calls": [],
+  "findings": {},
+  "reason": "資格情報／provision の出力が無い: AGENTCORE_PAYMENT_MANAGER_ARN, AGENTCORE_PAYMENT_INSTRUMENT_ID, PAYMENT_USER_EMAIL",
+  "plannedInputs": [
+    {
+      "seller": "/x402/weather",
+      "http_status": 402,
+      "paymentType": "CRYPTO_X402",
+      "paymentInput": {
+        "cryptoX402": {
+          "version": "1",
+          "payload": {
+            "scheme": "exact",
+            "network": "base-sepolia",
+            "maxAmountRequired": "10000",
+            "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+            "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+            "resource": "http://127.0.0.1:8402/x402/weather",
+            "description": "Testnet weather sample (x402 exact)",
+            "mimeType": "application/json",
+            "outputSchema": null,
+            "maxTimeoutSeconds": 60,
+            "extra": {
+              "name": "USDC",
+              "version": "2"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

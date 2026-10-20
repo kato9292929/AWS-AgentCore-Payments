@@ -35,6 +35,17 @@
  *   manual のとき追加で必要な env:
  *     CDP:   CDP_API_KEY_ID / CDP_API_KEY_SECRET / CDP_WALLET_SECRET
  *     Privy: PRIVY_APP_ID / PRIVY_APP_SECRET / PRIVY_AUTHORIZATION_ID / PRIVY_AUTHORIZATION_PRIVATE_KEY
+ *
+ * コンソールの Quick Create で作ったものを使う（AC-2）:
+ *   AgentCore コンソールの Create payment manager → Coinbase → Quick create は、
+ *   Payment Manager・Coinbase connector・credential provider（CDP の API キーと Wallet Secret）を
+ *   サービス側で作る。鍵は人間にも見えない。instrument と session は作らない。
+ *   その出力を env に置くと、該当する手順を飛ばして続きから作る:
+ *     AGENTCORE_PAYMENT_MANAGER_ARN     … 手順 1 を飛ばす（READY を確認するだけ）
+ *     AGENTCORE_PAYMENT_CONNECTOR_ID    … 手順 2 を飛ばす（READY を確認するだけ）
+ *     AGENTCORE_CREDENTIAL_PROVIDER_ARN … 手順 0 を飛ばす（connector を自分で作る場合だけ使う）
+ *   npx tsx scripts/provision-agentcore.mts --mode=manual --vendor=coinbase
+ *   この場合 CDP_* の鍵は要らない。
  */
 import {
   BedrockAgentCoreClient,
@@ -65,6 +76,20 @@ const VENDOR_FLAG = process.argv.find((a) => a.startsWith("--vendor="))?.slice(9
 const REGION = process.env["AWS_REGION"] ?? "us-east-1";
 const NAME_PREFIX = process.env["PROVISION_NAME_PREFIX"] ?? "buyer-harness";
 const OUT_PATH = resolve("artifacts", "provision-output.json");
+
+/** コンソールの Quick Create などで既にあるもの。あれば作らずに使う。 */
+const EXISTING = {
+  managerArn: process.env["AGENTCORE_PAYMENT_MANAGER_ARN"] || undefined,
+  connectorId: process.env["AGENTCORE_PAYMENT_CONNECTOR_ID"] || undefined,
+  credentialProviderArn: process.env["AGENTCORE_CREDENTIAL_PROVIDER_ARN"] || undefined,
+};
+
+/** arn:aws:bedrock-agentcore:<region>:<acct>:payment-manager/<id> → <id> */
+function managerIdFromArn(arn: string): string {
+  const m = /payment-manager\/([^/]+)$/.exec(arn);
+  if (!m) throw new Error(`AGENTCORE_PAYMENT_MANAGER_ARN から ID を取り出せない: ${arn}`);
+  return m[1]!;
+}
 
 type Vendor = "CoinbaseCDP" | "StripePrivy";
 
@@ -175,9 +200,11 @@ async function main(): Promise<number> {
   const userEmail = DRY_RUN
     ? (process.env["PAYMENT_USER_EMAIL"] ?? "<PAYMENT_USER_EMAIL>")
     : requireEnv("PAYMENT_USER_EMAIL");
-  const roleArn = DRY_RUN
-    ? (process.env["AGENTCORE_ROLE_ARN"] ?? "<AGENTCORE_ROLE_ARN>")
-    : requireEnv("AGENTCORE_ROLE_ARN");
+  // 既存の Payment Manager を使うならロールは要らない（ロールは manager 作成時にだけ渡す）
+  const roleArn =
+    DRY_RUN || EXISTING.managerArn
+      ? (process.env["AGENTCORE_ROLE_ARN"] ?? "<AGENTCORE_ROLE_ARN（既存 manager を使うなら不要）>")
+      : requireEnv("AGENTCORE_ROLE_ARN");
   const suffix = randomUUID().slice(0, 8);
 
   const plan = {
@@ -206,9 +233,16 @@ async function main(): Promise<number> {
     credentialsNeeded:
       MODE === "quick-create"
         ? "なし（OAuth 同意でサービスが credential provider を作る）"
-        : vendor === "CoinbaseCDP"
-          ? "CDP_API_KEY_ID / CDP_API_KEY_SECRET / CDP_WALLET_SECRET"
-          : "PRIVY_APP_ID / PRIVY_APP_SECRET / PRIVY_AUTHORIZATION_ID / PRIVY_AUTHORIZATION_PRIVATE_KEY",
+        : EXISTING.connectorId || EXISTING.credentialProviderArn
+          ? "なし（コンソールの Quick Create で作られた connector / credential provider を使う）"
+          : vendor === "CoinbaseCDP"
+            ? "CDP_API_KEY_ID / CDP_API_KEY_SECRET / CDP_WALLET_SECRET"
+            : "PRIVY_APP_ID / PRIVY_APP_SECRET / PRIVY_AUTHORIZATION_ID / PRIVY_AUTHORIZATION_PRIVATE_KEY",
+    reuse: {
+      paymentManager: EXISTING.managerArn ?? null,
+      paymentConnector: EXISTING.connectorId ?? null,
+      credentialProvider: EXISTING.credentialProviderArn ?? null,
+    },
   };
 
   if (DRY_RUN) {
@@ -224,9 +258,15 @@ async function main(): Promise<number> {
             "6. CreatePaymentSession（maxSpendAmount と有効期限で区切る）",
           ]
         : [
-            "0. CreatePaymentCredentialProvider（鍵を預ける）",
-            "1. CreatePaymentManager → READY を待つ",
-            "2. CreatePaymentConnector（MANUAL）→ READY を待つ",
+            EXISTING.credentialProviderArn || EXISTING.connectorId
+              ? "0. （飛ばす）credential provider は Quick Create で作成済み"
+              : "0. CreatePaymentCredentialProvider（鍵を預ける）",
+            EXISTING.managerArn
+              ? "1. （飛ばす）既存の Payment Manager を使う → READY を確認"
+              : "1. CreatePaymentManager → READY を待つ",
+            EXISTING.connectorId
+              ? "2. （飛ばす）既存の connector を使う → READY を確認"
+              : "2. CreatePaymentConnector（MANUAL）→ READY を待つ",
             "3. CreatePaymentInstrument → redirectUrl を人間が開いて署名許可＋入金",
             "4. GetPaymentInstrument が ACTIVE になるまで待つ",
             "5. GetPaymentInstrumentBalance で原資を確認",
@@ -241,8 +281,13 @@ async function main(): Promise<number> {
   const data = new BedrockAgentCoreClient({ region: REGION });
 
   // ---- 0. credential provider（manual のみ） ----
-  let credentialProviderArn: string | undefined;
-  if (MODE === "manual") {
+  let credentialProviderArn: string | undefined = EXISTING.credentialProviderArn;
+  if (MODE === "manual" && (EXISTING.credentialProviderArn || EXISTING.connectorId)) {
+    note("0. CreatePaymentCredentialProvider", "skipped", {
+      reason: "Quick Create などで作成済みのものを使う",
+      ...(credentialProviderArn ? { credentialProviderArn } : {}),
+    });
+  } else if (MODE === "manual") {
     const cred = await control.send(
       new CreatePaymentCredentialProviderCommand({
         name: plan.names.credentialProvider!,
@@ -260,19 +305,27 @@ async function main(): Promise<number> {
   }
 
   // ---- 1. payment manager ----
-  const mgr = await control.send(
-    new CreatePaymentManagerCommand({
-      name: plan.names.paymentManager,
-      description: "buyer harness (testnet)",
-      authorizerType: "AWS_IAM",
-      roleArn,
-      clientToken: randomUUID(),
-    }),
-  );
-  const paymentManagerArn = mgr.paymentManagerArn;
-  const paymentManagerId = mgr.paymentManagerId;
+  let paymentManagerArn: string | undefined;
+  let paymentManagerId: string | undefined;
+  if (EXISTING.managerArn) {
+    paymentManagerArn = EXISTING.managerArn;
+    paymentManagerId = managerIdFromArn(paymentManagerArn);
+    note("1. CreatePaymentManager", "skipped", { reason: "既存を使う", paymentManagerArn, paymentManagerId });
+  } else {
+    const mgr = await control.send(
+      new CreatePaymentManagerCommand({
+        name: plan.names.paymentManager,
+        description: "buyer harness (testnet)",
+        authorizerType: "AWS_IAM",
+        roleArn,
+        clientToken: randomUUID(),
+      }),
+    );
+    paymentManagerArn = mgr.paymentManagerArn;
+    paymentManagerId = mgr.paymentManagerId;
+    note("1. CreatePaymentManager", "ok", { paymentManagerArn, paymentManagerId });
+  }
   if (!paymentManagerArn || !paymentManagerId) throw new Error("paymentManagerArn / Id が返らなかった");
-  note("1. CreatePaymentManager", "ok", { paymentManagerArn, paymentManagerId });
 
   await poll(
     "PaymentManager",
@@ -284,7 +337,9 @@ async function main(): Promise<number> {
   note("1b. GetPaymentManager READY", "ok", { paymentManagerId });
 
   // ---- 2. connector ----
-  const connector = await control.send(
+  const connector = EXISTING.connectorId
+    ? { paymentConnectorId: EXISTING.connectorId, status: undefined, authorizationUrl: undefined }
+    : await control.send(
     new CreatePaymentConnectorCommand({
       paymentManagerId,
       name: plan.names.paymentConnector,
@@ -304,7 +359,8 @@ async function main(): Promise<number> {
   );
   const paymentConnectorId = connector.paymentConnectorId;
   if (!paymentConnectorId) throw new Error("paymentConnectorId が返らなかった");
-  note("2. CreatePaymentConnector", "ok", {
+  note("2. CreatePaymentConnector", EXISTING.connectorId ? "skipped" : "ok", {
+    ...(EXISTING.connectorId ? { reason: "既存を使う" } : {}),
     paymentConnectorId,
     provisionMode: MODE === "quick-create" ? "QUICK_CREATE" : "MANUAL",
     status: connector.status,
@@ -385,7 +441,7 @@ async function main(): Promise<number> {
       "",
       "  ここで 2 つやる:",
       "    1) このウォレットでの署名をエージェントに許可する",
-      "    2) Base Sepolia の testnet USDC を入金する",
+      "    2) Base Sepolia の testnet USDC を入金する（AC-2/AC-3a 用。上限 1 USDC 分で足りる）",
       `       トークン: 0x036CbD53842c5426634e7929541eC2318f3dCF7e`,
       walletAddress ? `       ウォレット: ${walletAddress}` : "",
       "",

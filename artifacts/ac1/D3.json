@@ -1,0 +1,242 @@
+{
+  "case": "D3",
+  "question": "売り手が支払い後に応答を 30 秒遅らせ、クライアントがタイムアウトして再送したとき、clientToken は使い回されるか",
+  "plane": "local-fake",
+  "executed": true,
+  "scope": "クライアント側（SDK / プラグイン）が渡す clientToken と、売り手側の決済回数まで。AgentCore の冪等性・予算は含まない（--plane=live で測る）",
+  "sdk": {
+    "bedrock-agentcore": "1.24.2",
+    "strands-agents": "1.61.1"
+  },
+  "mock_slow_ms": 30000,
+  "measuredAt": "2026-10-20T06:14:43Z",
+  "results": [
+    {
+      "path": "strands-plugin",
+      "planner": "scripted (1 回目のタイムアウト後に同じ URL を再度 http_request)",
+      "plugin_http_timeout_s": 30.0,
+      "post_payment_retry_delay_seconds": 3.0,
+      "elapsed_s": 66.2,
+      "process_payment_calls": [
+        {
+          "plane": "local-fake",
+          "client_token": "2b681933-002e-4712-8db0-5ffd4eb152cf",
+          "payment_type": "CRYPTO_X402",
+          "payment_session_id": "local-session",
+          "payload_summary": {
+            "rail": "x402",
+            "version": "1",
+            "scheme": "exact",
+            "network": "base-sepolia",
+            "amount": "10000",
+            "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C"
+          },
+          "at": 1792476766.0873888,
+          "process_payment_id": "local-fa99efb8-bd25-4b53-9d12-11000f2aa566",
+          "status": "PROOF_GENERATED",
+          "error": null,
+          "extra": {}
+        },
+        {
+          "plane": "local-fake",
+          "client_token": "8c90798a-fdd8-4439-8c4e-01ce4f6570d3",
+          "payment_type": "CRYPTO_X402",
+          "payment_session_id": "local-session",
+          "payload_summary": {
+            "rail": "x402",
+            "version": "1",
+            "scheme": "exact",
+            "network": "base-sepolia",
+            "amount": "10000",
+            "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C"
+          },
+          "at": 1792476799.2083366,
+          "process_payment_id": "local-3527e501-f979-43ef-b38b-c78fc1cb5632",
+          "status": "PROOF_GENERATED",
+          "error": null,
+          "extra": {}
+        }
+      ],
+      "client_tokens": [
+        "2b681933-002e-4712-8db0-5ffd4eb152cf",
+        "8c90798a-fdd8-4439-8c4e-01ce4f6570d3"
+      ],
+      "client_token_reused": false,
+      "merchant_settlements": 2,
+      "tool_results_seen_by_model": [
+        "{\"statusCode\": 200, \"headers\": {\"content-type\": \"application/json\", \"x-payment-response\": \"eyJzdWNjZXNzIjp0cnVlLCJ0cmFuc2FjdGlvbiI6IjB4NmIxNmZkY2UzMGYyYmU0Zjc0ZGIwYmE2ZGRjMDQ4YTlmZDJiN2IwNjRlZTVlNDhjYWVhZDNiOGVlZjFiNzFlZCIsIm5ldHdvcmsiOiJiYXNlLXNlcG9saWEiLCJwYXllciI6IjB4ZTA0RTZiQTcyYzAxQzZGQTMyOGNkN",
+        "{\"statusCode\": 200, \"headers\": {\"content-type\": \"application/json\", \"x-payment-response\": \"eyJzdWNjZXNzIjp0cnVlLCJ0cmFuc2FjdGlvbiI6IjB4Mzg4OTM0Nzg2NmYyMzY0MzQzMTRkMTRlZmU3Yzc0NzVjNDc1ZTI1OTk4MzdlY2Y3NGNiOWQzNGU2M2IyODgzMSIsIm5ldHdvcmsiOiJiYXNlLXNlcG9saWEiLCJwYXllciI6IjB4ZTA0RTZiQTcyYzAxQzZGQTMyOGNkN"
+      ]
+    },
+    {
+      "path": "generate_payment_header/b0",
+      "variant": "同じ支払いヘッダをそのまま再送",
+      "client_timeout_s": 10.0,
+      "process_payment_calls": [
+        {
+          "plane": "local-fake",
+          "client_token": "cb1f4e71-9e24-4ad6-8e30-b621ead697bb",
+          "payment_type": "CRYPTO_X402",
+          "payment_session_id": "local-session",
+          "payload_summary": {
+            "rail": "x402",
+            "version": "1",
+            "scheme": "exact",
+            "network": "base-sepolia",
+            "amount": "10000",
+            "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C"
+          },
+          "at": 1792476832.488437,
+          "process_payment_id": "local-800f48fc-0cdb-4e3e-88ca-3c24c6dfa1e8",
+          "status": "PROOF_GENERATED",
+          "error": null,
+          "extra": {}
+        }
+      ],
+      "client_tokens": [
+        "cb1f4e71-9e24-4ad6-8e30-b621ead697bb"
+      ],
+      "client_token_reused": false,
+      "http_attempts": [
+        {
+          "label": "1st (timeout expected)",
+          "timeout": true,
+          "elapsed_s": 10.1
+        },
+        {
+          "label": "resend same header",
+          "http_status": 402,
+          "elapsed_s": 0.0,
+          "body": "{\"x402Version\":1,\"error\":\"nonce_already_used\"}"
+        }
+      ],
+      "merchant_settlements": 1
+    },
+    {
+      "path": "generate_payment_header/b1",
+      "variant": "402 を取り直し client_token 未指定で再生成（SDK 既定）",
+      "client_timeout_s": 10.0,
+      "process_payment_calls": [
+        {
+          "plane": "local-fake",
+          "client_token": "838f1612-c7e9-40a4-963d-5f1f76fe0102",
+          "payment_type": "CRYPTO_X402",
+          "payment_session_id": "local-session",
+          "payload_summary": {
+            "rail": "x402",
+            "version": "1",
+            "scheme": "exact",
+            "network": "base-sepolia",
+            "amount": "10000",
+            "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C"
+          },
+          "at": 1792476842.858582,
+          "process_payment_id": "local-f016041a-74e8-4444-8101-fe4f7325cacc",
+          "status": "PROOF_GENERATED",
+          "error": null,
+          "extra": {}
+        },
+        {
+          "plane": "local-fake",
+          "client_token": "b724b136-ab60-4d98-8eea-2413568fc6e6",
+          "payment_type": "CRYPTO_X402",
+          "payment_session_id": "local-session",
+          "payload_summary": {
+            "rail": "x402",
+            "version": "1",
+            "scheme": "exact",
+            "network": "base-sepolia",
+            "amount": "10000",
+            "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C"
+          },
+          "at": 1792476853.0083065,
+          "process_payment_id": "local-6231954c-4c14-40fe-975c-a2b7cda026a3",
+          "status": "PROOF_GENERATED",
+          "error": null,
+          "extra": {}
+        }
+      ],
+      "client_tokens": [
+        "838f1612-c7e9-40a4-963d-5f1f76fe0102",
+        "b724b136-ab60-4d98-8eea-2413568fc6e6"
+      ],
+      "client_token_reused": false,
+      "http_attempts": [
+        {
+          "label": "1st (timeout expected)",
+          "timeout": true,
+          "elapsed_s": 10.1
+        },
+        {
+          "label": "regenerate & resend",
+          "timeout": true,
+          "elapsed_s": 10.0
+        }
+      ],
+      "merchant_settlements": 2
+    },
+    {
+      "path": "generate_payment_header/b2",
+      "variant": "402 を取り直し 1 回目と同じ client_token を明示して再生成",
+      "client_timeout_s": 10.0,
+      "process_payment_calls": [
+        {
+          "plane": "local-fake",
+          "client_token": "d3-fixed-9225dfa65cdf9df5313ef527",
+          "payment_type": "CRYPTO_X402",
+          "payment_session_id": "local-session",
+          "payload_summary": {
+            "rail": "x402",
+            "version": "1",
+            "scheme": "exact",
+            "network": "base-sepolia",
+            "amount": "10000",
+            "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C"
+          },
+          "at": 1792476863.4650924,
+          "process_payment_id": "local-8e1bc7ec-7688-4b16-a252-7acae774bdb0",
+          "status": "PROOF_GENERATED",
+          "error": null,
+          "extra": {}
+        },
+        {
+          "plane": "local-fake",
+          "client_token": "d3-fixed-9225dfa65cdf9df5313ef527",
+          "payment_type": "CRYPTO_X402",
+          "payment_session_id": "local-session",
+          "payload_summary": {
+            "rail": "x402",
+            "version": "1",
+            "scheme": "exact",
+            "network": "base-sepolia",
+            "amount": "10000",
+            "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C"
+          },
+          "at": 1792476873.6029325,
+          "process_payment_id": "local-95a6272f-c213-4ea1-a4ea-ea647da43270",
+          "status": "PROOF_GENERATED",
+          "error": null,
+          "extra": {}
+        }
+      ],
+      "client_tokens": [
+        "d3-fixed-9225dfa65cdf9df5313ef527",
+        "d3-fixed-9225dfa65cdf9df5313ef527"
+      ],
+      "client_token_reused": true,
+      "http_attempts": [
+        {
+          "label": "1st (timeout expected)",
+          "timeout": true,
+          "elapsed_s": 10.1
+        },
+        {
+          "label": "regenerate & resend",
+          "timeout": true,
+          "elapsed_s": 10.1
+        }
+      ],
+      "merchant_settlements": 2
+    }
+  ]
+}

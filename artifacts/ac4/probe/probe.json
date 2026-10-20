@@ -1,0 +1,326 @@
+{
+  "runId": "probe",
+  "label": "ac4-probe",
+  "signed": false,
+  "results": [
+    {
+      "label": "x402.org（AC-2 の testnet 売り手）",
+      "seller": "x402.org",
+      "url": "https://x402.org/protected",
+      "host": "x402.org",
+      "method": "GET",
+      "httpStatus": 402,
+      "latencyMs": 310,
+      "probedAt": "2026-10-20T08:44:51.462Z",
+      "accepts": [
+        {
+          "protocol": "x402",
+          "x402Version": 2,
+          "scheme": "exact",
+          "network": "eip155:84532",
+          "networkClass": "testnet",
+          "amountAtomic": "10000",
+          "priceUsd": "0.010000",
+          "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+          "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+          "extra": {
+            "name": "USDC",
+            "version": "2"
+          }
+        },
+        {
+          "protocol": "x402",
+          "x402Version": 2,
+          "scheme": "exact",
+          "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+          "networkClass": "testnet",
+          "amountAtomic": "10000",
+          "priceUsd": "0.010000",
+          "asset": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+          "payTo": "CKPKJWNdJEqa81x7CkZ14BVPiY6y16Sxs7owznqtWYp5",
+          "extra": {
+            "feePayer": "CKPKJWNdJEqa81x7CkZ14BVPiY6y16Sxs7owznqtWYp5"
+          }
+        }
+      ]
+    },
+    {
+      "label": "OneSource",
+      "seller": "OneSource",
+      "url": "https://api.onesource.io/api/chain/block-number",
+      "host": "api.onesource.io",
+      "method": "GET",
+      "httpStatus": 402,
+      "latencyMs": 143,
+      "probedAt": "2026-10-20T08:44:51.772Z",
+      "accepts": [
+        {
+          "protocol": "x402",
+          "x402Version": 2,
+          "scheme": "exact",
+          "network": "eip155:8453",
+          "networkClass": "mainnet-or-unknown",
+          "amountAtomic": "1000",
+          "priceUsd": "0.001000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "payTo": "0x52E29e0d2Aa49bfBfC548C0A9F2196F4aa51f3ea",
+          "extra": {
+            "credentialTypes": [
+              "authorization"
+            ],
+            "name": "USD Coin",
+            "version": "2"
+          }
+        },
+        {
+          "protocol": "x402",
+          "x402Version": 2,
+          "scheme": "batch-settlement",
+          "network": "eip155:8453",
+          "networkClass": "mainnet-or-unknown",
+          "amountAtomic": "1000",
+          "priceUsd": "0.001000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "payTo": "0x52E29e0d2Aa49bfBfC548C0A9F2196F4aa51f3ea",
+          "extra": {
+            "name": "USD Coin",
+            "receiverAuthorizer": "0x11dF9F6280632aB8F12926b3f569E493EaEcf81b",
+            "version": "2",
+            "withdrawDelay": 86400
+          }
+        },
+        {
+          "protocol": "MPP",
+          "scheme": "tempo/charge",
+          "network": "eip155:4217",
+          "networkClass": "mainnet-or-unknown",
+          "amountAtomic": "1000",
+          "priceUsd": null,
+          "asset": "0x20C000000000000000000000b9537d11c60E8b50",
+          "payTo": "0x19B8e99079A5558ff4460357b0a78e14a7F600B7",
+          "extra": {
+            "methodDetails": {
+              "chainId": 4217
+            },
+            "expires": "2026-10-20T08:49:51.908Z"
+          }
+        },
+        {
+          "protocol": "MPP",
+          "scheme": "tempo/charge",
+          "network": "eip155:4217",
+          "networkClass": "mainnet-or-unknown",
+          "amountAtomic": "1000",
+          "priceUsd": null,
+          "asset": "0x20C0000000000000000000000000000000000000",
+          "payTo": "0x19B8e99079A5558ff4460357b0a78e14a7F600B7",
+          "extra": {
+            "methodDetails": {
+              "chainId": 4217
+            },
+            "expires": "2026-10-20T08:49:51.908Z"
+          }
+        },
+        {
+          "protocol": "MPP",
+          "scheme": "tempo/session",
+          "network": "eip155:4217",
+          "networkClass": "mainnet-or-unknown",
+          "amountAtomic": "1000",
+          "priceUsd": null,
+          "asset": "0x20C000000000000000000000b9537d11c60E8b50",
+          "payTo": "0x19B8e99079A5558ff4460357b0a78e14a7F600B7",
+          "extra": {
+            "methodDetails": {
+              "chainId": 4217,
+              "escrowContract": "0x33b901018174DDabE4841042ab76ba85D4e24f25",
+              "minVoucherDelta": "1000"
+            },
+            "expires": "2026-10-20T08:49:51.908Z"
+          }
+        }
+      ]
+    },
+    {
+      "label": "2s（ICD-10）",
+      "seller": "2s",
+      "url": "https://2s.io/api/medical/icd10",
+      "host": "2s.io",
+      "method": "GET",
+      "httpStatus": 402,
+      "latencyMs": 232,
+      "probedAt": "2026-10-20T08:44:51.916Z",
+      "accepts": [
+        {
+          "protocol": "x402",
+          "x402Version": 2,
+          "scheme": "exact",
+          "network": "eip155:8453",
+          "networkClass": "mainnet-or-unknown",
+          "amountAtomic": "2500",
+          "priceUsd": "0.002500",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "payTo": "0x2b6D4988Db4723E6908Db86Ab2b8dFBc51FC32C5",
+          "extra": {
+            "name": "USD Coin",
+            "version": "2"
+          }
+        },
+        {
+          "protocol": "x402",
+          "x402Version": 2,
+          "scheme": "exact",
+          "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+          "networkClass": "mainnet-or-unknown",
+          "amountAtomic": "2500",
+          "priceUsd": "0.002500",
+          "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "payTo": "TW6ntaGzvj63ZgPjszd4FCGmVTGfzv1MAYZbjYcyWhn",
+          "extra": {
+            "name": "USDC",
+            "version": "1",
+            "feePayer": "GVJJ7rdGiXr5xaYbRwRbjfaJL7fmwRygFi1H6aGqDveb"
+          }
+        }
+      ]
+    },
+    {
+      "label": "2s（AI chat, upto）",
+      "seller": "2s",
+      "url": "https://2s.io/api/ai/chat",
+      "host": "2s.io",
+      "method": "POST",
+      "httpStatus": 402,
+      "latencyMs": 203,
+      "probedAt": "2026-10-20T08:44:52.148Z",
+      "accepts": [
+        {
+          "protocol": "x402",
+          "x402Version": 2,
+          "scheme": "exact",
+          "network": "eip155:8453",
+          "networkClass": "mainnet-or-unknown",
+          "amountAtomic": "2500",
+          "priceUsd": "0.002500",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "payTo": "0x2b6D4988Db4723E6908Db86Ab2b8dFBc51FC32C5",
+          "extra": {
+            "name": "USD Coin",
+            "version": "2"
+          }
+        },
+        {
+          "protocol": "x402",
+          "x402Version": 2,
+          "scheme": "exact",
+          "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+          "networkClass": "mainnet-or-unknown",
+          "amountAtomic": "2500",
+          "priceUsd": "0.002500",
+          "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "payTo": "TW6ntaGzvj63ZgPjszd4FCGmVTGfzv1MAYZbjYcyWhn",
+          "extra": {
+            "name": "USDC",
+            "version": "1",
+            "feePayer": "Hc3sdEAsCGQcpgfivywog9uwtk8gUBUZgsxdME1EJy88"
+          }
+        },
+        {
+          "protocol": "x402",
+          "x402Version": 2,
+          "scheme": "upto",
+          "network": "eip155:8453",
+          "networkClass": "mainnet-or-unknown",
+          "amountAtomic": "2500",
+          "priceUsd": "0.002500",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "payTo": "0x2b6D4988Db4723E6908Db86Ab2b8dFBc51FC32C5",
+          "extra": {
+            "name": "USD Coin",
+            "version": "2",
+            "facilitatorAddress": "0x68A96F41ff1e9F2E7b591A931A4AD224e7C07863"
+          }
+        }
+      ]
+    },
+    {
+      "label": "Otto AI",
+      "seller": "Otto AI",
+      "url": "https://x402.ottoai.services/dns-lookup",
+      "host": "x402.ottoai.services",
+      "method": "GET",
+      "httpStatus": 402,
+      "latencyMs": 333,
+      "probedAt": "2026-10-20T08:44:52.351Z",
+      "accepts": [
+        {
+          "protocol": "x402",
+          "x402Version": 2,
+          "scheme": "exact",
+          "network": "eip155:8453",
+          "networkClass": "mainnet-or-unknown",
+          "amountAtomic": "1000",
+          "priceUsd": "0.001000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "payTo": "0x0E84dDEdAaE6A779c462C22a59F301EC31B6b808",
+          "extra": {
+            "name": "USD Coin",
+            "version": "2"
+          }
+        },
+        {
+          "protocol": "x402",
+          "x402Version": 2,
+          "scheme": "exact",
+          "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+          "networkClass": "mainnet-or-unknown",
+          "amountAtomic": "1000",
+          "priceUsd": "0.001000",
+          "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "payTo": "6XcSfqJHr9vNW2vbiRaMqUYVm7shDgLepca54wUTDPN5",
+          "extra": {
+            "feePayer": "BENrLoUbndxoNMUS5JXApGMtNykLjFXXixMtpDwDR9SP"
+          }
+        }
+      ]
+    },
+    {
+      "label": "GoCreative（eBay scrape）",
+      "seller": "GoCreative",
+      "url": "https://api.gocreativeai.com/v1/scrape/ebay/iphone",
+      "host": "api.gocreativeai.com",
+      "method": "GET",
+      "httpStatus": 502,
+      "latencyMs": 248,
+      "probedAt": "2026-10-20T08:44:52.684Z",
+      "accepts": []
+    },
+    {
+      "label": "BlockRun（chat completions）",
+      "seller": "BlockRun",
+      "url": "https://blockrun.ai/api/v1/chat/completions",
+      "host": "blockrun.ai",
+      "method": "POST",
+      "httpStatus": 402,
+      "latencyMs": 215,
+      "probedAt": "2026-10-20T08:44:52.932Z",
+      "accepts": [
+        {
+          "protocol": "x402",
+          "x402Version": 2,
+          "scheme": "exact",
+          "network": "eip155:8453",
+          "networkClass": "mainnet-or-unknown",
+          "amountAtomic": "2000",
+          "priceUsd": "0.002000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "payTo": "0xe9030014F5DAe217d0A152f02A043567b16c1aBf",
+          "extra": {
+            "name": "USD Coin",
+            "version": "2"
+          }
+        }
+      ]
+    }
+  ]
+}

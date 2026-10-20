@@ -10,8 +10,8 @@
 
 | | 状態 |
 |---|---|
-| 402 → 署名 → 再送 → 200 の一周（x402 / MPP 両方） | **実測。ただし相手はローカル模擬売り手** |
-| 公開 testnet エンドポイント（mpp.dev / x402.org）への一周 | **未実施**（egress 403。`docs/T4-T5-blocked.md`） |
+| 402 → 署名 → 再送 → 200 の一周（x402 v1 / v2 / MPP / upto） | **実測。ただし相手はローカル模擬売り手** |
+| 公開 testnet エンドポイント（x402.org）への一周 | **未実施**（egress は開いた。AgentCore の資格情報待ち。`docs/AC2-results.md`） |
 | AgentCore `ProcessPayment` の実行 | **未実行**（コントロールプレーンの資格情報が無い） |
 | AgentCore API 形状・対応チェーン・上限の仕様 | **一次確認済み**（`docs/T1-agentcore-findings.md`） |
 | 上限超過で決済に進まないこと | **実測**（`artifacts/limit-exceeded`）。per_call と session を `rule` で区別（`artifacts/per-call-only`） |
@@ -24,6 +24,25 @@
 
 採取ログの receipt には `proofSource`（agentcore / local-signer）と
 `merchant`（live / mock-local）が必ず入る。実払いと取り違えられないようにしてある。
+
+## AC-1〜AC-4（2026-10）
+
+| | 何を測るか | 結果 | 実行 |
+|---|---|---|---|
+| AC-1 | ProcessPayment の冪等性と、止める条件（D1〜D8） | [`docs/AC1-results.md`](docs/AC1-results.md) | `npm run ac1`、`python scripts/ac1/d3_client_token.py` |
+| AC-2 | Coinbase 経路で x402.org/protected に実払いの一周 | [`docs/AC2-results.md`](docs/AC2-results.md) | `python scripts/ac2/run.py` |
+| AC-3 | upto で予算が上限額と実額のどちらで減るか | [`docs/AC3-results.md`](docs/AC3-results.md) | `npm run ac3 -- --mode=...` |
+| AC-4 | AA と同じ売り手を同じ項目名で並べる書式 | [`docs/AC4-schema.md`](docs/AC4-schema.md) | `npm run ac4:probe`、`npm run ac4:normalize` |
+
+AgentCore の資格情報が要る項目は、表に「未実施（理由）」と書いてある。資格情報が揃ったら上のコマンドを流して
+`npx tsx scripts/report.ts` で表を作り直す（値は artifacts/ からだけ取る）。
+
+この版で足したガード:
+- **支払い先 allowlist**（`config/payto-allowlist.json`）。payTo × network が一致しなければ署名に進まない（TS ハーネスと Strands 例の両方）
+- **upto の予約**。上限額で押さえ、settle の実額で確定して差額を解放する（exact は従来どおり）
+- **`--guards=agentcore-only`**。自前の上限を判定だけ残して外す測定用モード（既定は両方有効）
+- **`--probe-only`**。402 を取って記録するだけ。署名も再送もしない
+- **`npm run check:keys`**。artifacts/ と docs/ の全テキストを見て、環境にある秘密 env の値そのものが出ていないことも確かめる
 
 ## 動かす
 
@@ -43,8 +62,16 @@ npm run check
 #   check:ga         SDK の enum を読み直して GA 差分を検出（未確定点も出力）
 #   check:redaction  偽の鍵素材を流して、伏せられること／tx参照は残ることを確認
 #   check:facilitator 模擬売り手が nonce 再利用・署名改竄を実際に弾くか（要: mock:merchant 起動中）
+#   check:guards     payTo allowlist / upto の予約と確定 / agentcore-only / x402 v2 の読み取り
 #   check:secrets    全ログに鍵素材が出ていないか
+#   check:keys       artifacts/ と docs/ の全テキストに鍵素材・秘密 env の値が出ていないか（偽の秘密で自己確認つき）
+
+# Python 側（要: pip install "bedrock-agentcore[strands-agents]" eth-account）
+npm run check:py   # Strands 経路でも allowlist に無い payTo には ProcessPayment を呼ばない
 ```
+
+> この環境の env に `MAINNET_*` という名前の変数があると、ハーネスは起動時に停止する（実マネー禁止ガード）。
+> 測定はそれらを外した env で行うこと（`env -u MAINNET_... npm run ...`）。
 
 単発で回す:
 
@@ -126,6 +153,9 @@ src/guard/approvalLedger.ts  承認の有効範囲（オリジン + 金額の天
 src/guard/demandLedger.ts    二重支払いと再送回数の抑止（clientToken を demand ごとに固定）
 src/guard/redact.ts     層1: 鍵素材の出口側フィルタ
 src/guard/network.ts    mainnet 検出で停止（allowlist 方式）
+src/guard/payToAllowlist.ts  支払い先（payTo × network）の allowlist。config/payto-allowlist.json
+src/tools/probe.ts      --probe-only（402 を記録するだけ。署名しない）
+src/rails/upto.ts       x402 upto（Permit2 witness）の署名データ
 src/backends/agentcore.ts   実 AgentCore（ProcessPayment / CreatePaymentSession）
 src/backends/paymentStatus.ts  status の分類。SDK と docs の食い違いをここで吸収する
 src/rails/caip2.ts      network 表記の変換（slug ↔ CAIP-2）。未知は停止側に倒す
@@ -137,6 +167,13 @@ scripts/provision-agentcore.mts  AgentCore のプロビジョニング（--dry-r
 examples/pay_with_strands.py     Strands プラグインで払う最小結線（実払いはこちらが本線）
 infra/iam/              サービスロールの信頼ポリシーと権限の雛形
 docs/                   T1 の一次確認、未達の理由、図、6軸比較、記事差し替えメモ
+scripts/ac1/            AC-1（run.ts: ProcessPayment 直叩き D1〜D8 / d3_client_token.py: D3）
+scripts/ac2/            AC-2（run.py: 10 回計測とオンチェーン照合 / cloudwatch.py / check_payto_guard.py）
+scripts/ac3/            AC-3（run.ts: upto の予算 / ac3b_mainnet.py: AC-3b の 2s(upto)・BlockRun(exact)、--allow-mainnet 必須）
+scripts/ac4/normalize.ts AC-4 の書式へ変換と比較表（AA 列は空欄）
+scripts/py/             Python 共用（LocalPlane: AgentCore を呼ばない結線確認 / 台本モデル / scrub）
+scripts/report.ts       artifacts から docs/AC1〜AC3-results.md を作り直す
+examples/payto_guard.py Strands 経路の payTo allowlist（402 を削ってから署名に渡す）
 artifacts/              採取ログ（events.jsonl / summary.json / INDEX.json）
 ```
 

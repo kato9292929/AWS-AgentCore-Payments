@@ -6,7 +6,13 @@
     "",
     "未検証な点: IAM のサービスプレフィックスがコントロールプレーンとデータプレーンで",
     "同一（bedrock-agentcore:）かどうか。docs が読めないため確認できていない。",
-    "AccessDenied のメッセージに出るアクション名が正解なので、それで補正すること。"
+    "AccessDenied のメッセージに出るアクション名が正解なので、それで補正すること。",
+    "",
+    "AC-1〜AC-3 で足したもの（2026-10-20）:",
+    "  ListPaymentSessions … scripts/ac1/run.ts の疎通確認",
+    "  Observability … scripts/ac2/cloudwatch.py（vended logs の delivery 作成と、メトリクス名・ログのキー名の採取）",
+    "  Coinbase の Quick Create には AWS Marketplace の「Coinbase Wallets for AgentCore Payments」の購読が要る",
+    "  （無いと SubscriptionRequiredException）。IAM ではなく Marketplace 側の操作。"
   ],
   "Version": "2012-10-17",
   "Statement": [
@@ -42,6 +48,7 @@
       "Action": [
         "bedrock-agentcore:CreatePaymentSession",
         "bedrock-agentcore:GetPaymentSession",
+        "bedrock-agentcore:ListPaymentSessions",
         "bedrock-agentcore:DeletePaymentSession",
         "bedrock-agentcore:ProcessPayment"
       ],
@@ -50,16 +57,41 @@
     {
       "Sid": "PassServiceRole",
       "Effect": "Allow",
-      "Action": ["iam:PassRole"],
+      "Action": [
+        "iam:PassRole"
+      ],
       "Resource": "arn:aws:iam::<account>:role/<service-role>",
       "Condition": {
-        "StringEquals": { "iam:PassedToService": "bedrock-agentcore.amazonaws.com" }
+        "StringEquals": {
+          "iam:PassedToService": "bedrock-agentcore.amazonaws.com"
+        }
       }
     },
     {
       "Sid": "StoreConnectorSecrets",
       "Effect": "Allow",
-      "Action": ["secretsmanager:CreateSecret", "secretsmanager:TagResource"],
+      "Action": [
+        "secretsmanager:CreateSecret",
+        "secretsmanager:TagResource"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "Observability",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:DescribeLogGroups",
+        "logs:FilterLogEvents",
+        "logs:PutDeliverySource",
+        "logs:PutDeliveryDestination",
+        "logs:CreateDelivery",
+        "logs:GetDelivery",
+        "logs:DescribeDeliveries",
+        "bedrock-agentcore:AllowVendedLogDeliveryForResource",
+        "cloudwatch:ListMetrics",
+        "cloudwatch:GetMetricData"
+      ],
       "Resource": "*"
     }
   ]

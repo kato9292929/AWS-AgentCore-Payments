@@ -5,7 +5,7 @@
  *  - AWS SDK for JavaScript v3 の生成モデル
  *    node_modules/@aws-sdk/client-bedrock-agentcore/dist-types/models/enums.d.ts
  *    node_modules/@aws-sdk/client-bedrock-agentcore/dist-types/models/models_[01].d.ts
- *    （docs.aws.amazon.com は本セッションの egress ポリシーで到達不可のため、
+ *    （2026-08 時点は docs.aws.amazon.com が egress ポリシーで到達不可だったため、
  *      同じ API モデルから生成された SDK 型定義を一次情報として使用した。
  *      詳細と引用は docs/T1-agentcore-findings.md）
  */
@@ -22,6 +22,11 @@ export const TESTNET_X402_NETWORKS = [
   "solana-devnet",
   "avalanche-fuji",
   "sei-testnet",
+  // x402 v2 は network を CAIP-2 で返す（PAYMENT-REQUIRED ヘッダ）
+  "eip155:84532", // Base Sepolia
+  "eip155:11155111", // Ethereum Sepolia
+  "eip155:43113", // Avalanche Fuji
+  "solana:etwtrabzayq6imfeykouru166vu2xqa1", // Solana devnet（小文字化して比較する）
 ] as const;
 
 /** MPP methodDetails.chainId のうち testnet として許可するもの（EIP-155）。 */

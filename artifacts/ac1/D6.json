@@ -1,0 +1,29 @@
+{
+  "case": "D6",
+  "question": "MPP: 期限切れのチャレンジ: ValidationException になり予算が減らないか",
+  "executed": false,
+  "startedAt": "2026-10-20T06:12:44.870Z",
+  "region": "us-east-1",
+  "seller": [
+    "http://127.0.0.1:8402/mpp/expired"
+  ],
+  "calls": [],
+  "findings": {},
+  "reason": "資格情報／provision の出力が無い: AGENTCORE_PAYMENT_MANAGER_ARN, AGENTCORE_PAYMENT_INSTRUMENT_ID, PAYMENT_USER_EMAIL",
+  "plannedInputs": [
+    {
+      "seller": "/mpp/expired",
+      "http_status": 402,
+      "paymentType": "MPP",
+      "paymentInput": {
+        "mpp": {
+          "version": "1",
+          "wwwAuthenticateHeaders": [
+            "Payment id=\"TAxIZzfZ5N7AEy5YlRhEK-nVGpMJqSDw8ZP20L49fQs\", realm=\"127.0.0.1:8402\", method=\"evm\", intent=\"charge\", expires=\"2026-10-20T06:11:44Z\", request=\"eyJhbW91bnQiOiIyMDAwMCIsImN1cnJlbmN5IjoiMHgwMzZDYkQ1Mzg0MmM1NDI2NjM0ZTc5Mjk1NDFlQzIzMThmM2RDRjdlIiwiZGVzY3JpcHRpb24iOiLmnJ_pmZDliIfjgozjga4gTVBQIOODgeODo-ODrOODs-OCuO-8iEFDLTEgRDbvvIkiLCJtZXRob2REZXRhaWxzIjp7ImNoYWluSWQiOjg0NTMyLCJjcmVkZW50aWFsVHlwZXMiOlsiYXV0aG9yaXphdGlvbiJdLCJkZWNpbWFscyI6Nn0sInJlY2lwaWVudCI6IjB4MjA5NjkzQmM2YWZjMEM1MzI4YkEzNkZhRjAzQzUxNEVGMzEyMjg3QyJ9\""
+          ],
+          "buyerPaysGasFees": false
+        }
+      }
+    }
+  ]
+}

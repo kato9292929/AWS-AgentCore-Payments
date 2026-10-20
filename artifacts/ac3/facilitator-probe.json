@@ -1,0 +1,31 @@
+{
+  "mode": "facilitator-probe",
+  "measuredAt": "2026-10-20T06:14:58.004Z",
+  "facilitator": "https://x402.org/facilitator",
+  "supported_upto_base_sepolia": {
+    "x402Version": 2,
+    "scheme": "upto",
+    "network": "eip155:84532",
+    "extra": {
+      "facilitatorAddress": "0xd407e409E34E0b9afb99EcCeb609bDbcD5e7f1bf"
+    }
+  },
+  "what": "local-signer（残高ゼロ・Permit2 未 approve の使い捨て鍵）で upto に署名し、模擬売り手経由で facilitator の /verify に投げた。facilitator が upto を受け付ける経路であることと、断る理由を記録する。",
+  "signature_generated": true,
+  "resend_status": 402,
+  "resend_body": {
+    "x402Version": 2,
+    "error": "facilitator_verify_failed",
+    "facilitator": {
+      "httpStatus": 200,
+      "isValid": false,
+      "invalidReason": "permit2_insufficient_balance",
+      "payer": "0x29B14a54C3fB24B80b819687E1aA54101989371b"
+    }
+  },
+  "facilitator_calls_from_mock": [
+    "facilitator /verify 200 {\"isValid\":false,\"invalidReason\":\"permit2_insufficient_balance\",\"payer\":\"0x29B14a54C3fB24B80b819687E1aA54101989371b\"}"
+  ],
+  "exit_code": 0,
+  "events": "artifacts/ac3/facilitator-probe-run/events.jsonl"
+}

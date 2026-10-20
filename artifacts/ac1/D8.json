@@ -1,0 +1,37 @@
+{
+  "case": "D8",
+  "question": "testnet（eip155:84532, x402 v2）で D4: セッション上限が testnet でも効くか",
+  "executed": false,
+  "startedAt": "2026-10-20T06:12:44.877Z",
+  "region": "us-east-1",
+  "seller": [
+    "http://127.0.0.1:8402/x402/v2/nickel"
+  ],
+  "calls": [],
+  "findings": {},
+  "reason": "資格情報／provision の出力が無い: AGENTCORE_PAYMENT_MANAGER_ARN, AGENTCORE_PAYMENT_INSTRUMENT_ID, PAYMENT_USER_EMAIL",
+  "plannedInputs": [
+    {
+      "seller": "/x402/v2/nickel",
+      "http_status": 402,
+      "paymentType": "CRYPTO_X402",
+      "paymentInput": {
+        "cryptoX402": {
+          "version": "2",
+          "payload": {
+            "scheme": "exact",
+            "network": "eip155:84532",
+            "amount": "50000",
+            "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+            "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+            "maxTimeoutSeconds": 60,
+            "extra": {
+              "name": "USDC",
+              "version": "2"
+            }
+          }
+        }
+      }
+    }
+  ]
+}
