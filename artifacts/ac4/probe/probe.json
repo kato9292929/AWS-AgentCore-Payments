@@ -10,8 +10,8 @@
       "host": "x402.org",
       "method": "GET",
       "httpStatus": 402,
-      "latencyMs": 242,
-      "probedAt": "2026-10-20T06:15:01.435Z",
+      "latencyMs": 310,
+      "probedAt": "2026-10-20T08:44:51.462Z",
       "accepts": [
         {
           "protocol": "x402",
@@ -51,8 +51,8 @@
       "host": "api.onesource.io",
       "method": "GET",
       "httpStatus": 402,
-      "latencyMs": 193,
-      "probedAt": "2026-10-20T06:15:01.678Z",
+      "latencyMs": 143,
+      "probedAt": "2026-10-20T08:44:51.772Z",
       "accepts": [
         {
           "protocol": "x402",
@@ -102,7 +102,7 @@
             "methodDetails": {
               "chainId": 4217
             },
-            "expires": "2026-10-20T06:20:01.872Z"
+            "expires": "2026-10-20T08:49:51.908Z"
           }
         },
         {
@@ -118,7 +118,7 @@
             "methodDetails": {
               "chainId": 4217
             },
-            "expires": "2026-10-20T06:20:01.872Z"
+            "expires": "2026-10-20T08:49:51.908Z"
           }
         },
         {
@@ -136,7 +136,7 @@
               "escrowContract": "0x33b901018174DDabE4841042ab76ba85D4e24f25",
               "minVoucherDelta": "1000"
             },
-            "expires": "2026-10-20T06:20:01.872Z"
+            "expires": "2026-10-20T08:49:51.908Z"
           }
         }
       ]
@@ -148,8 +148,8 @@
       "host": "2s.io",
       "method": "GET",
       "httpStatus": 402,
-      "latencyMs": 564,
-      "probedAt": "2026-10-20T06:15:01.871Z",
+      "latencyMs": 232,
+      "probedAt": "2026-10-20T08:44:51.916Z",
       "accepts": [
         {
           "protocol": "x402",
@@ -179,7 +179,7 @@
           "extra": {
             "name": "USDC",
             "version": "1",
-            "feePayer": "D6ZhtNQ5nT9ZnTHUbqXZsTx5MH2rPFiBBggX4hY1WePM"
+            "feePayer": "GVJJ7rdGiXr5xaYbRwRbjfaJL7fmwRygFi1H6aGqDveb"
           }
         }
       ]
@@ -191,8 +191,8 @@
       "host": "2s.io",
       "method": "POST",
       "httpStatus": 402,
-      "latencyMs": 550,
-      "probedAt": "2026-10-20T06:15:02.435Z",
+      "latencyMs": 203,
+      "probedAt": "2026-10-20T08:44:52.148Z",
       "accepts": [
         {
           "protocol": "x402",
@@ -222,7 +222,7 @@
           "extra": {
             "name": "USDC",
             "version": "1",
-            "feePayer": "D6ZhtNQ5nT9ZnTHUbqXZsTx5MH2rPFiBBggX4hY1WePM"
+            "feePayer": "Hc3sdEAsCGQcpgfivywog9uwtk8gUBUZgsxdME1EJy88"
           }
         },
         {
@@ -238,7 +238,7 @@
           "extra": {
             "name": "USD Coin",
             "version": "2",
-            "facilitatorAddress": "0x8F5cB67B49555E614892b7233CFdDEBFB746E531"
+            "facilitatorAddress": "0x68A96F41ff1e9F2E7b591A931A4AD224e7C07863"
           }
         }
       ]
@@ -250,8 +250,8 @@
       "host": "x402.ottoai.services",
       "method": "GET",
       "httpStatus": 402,
-      "latencyMs": 594,
-      "probedAt": "2026-10-20T06:15:02.986Z",
+      "latencyMs": 333,
+      "probedAt": "2026-10-20T08:44:52.351Z",
       "accepts": [
         {
           "protocol": "x402",
@@ -285,16 +285,15 @@
       ]
     },
     {
-      "label": "GoCreative",
+      "label": "GoCreative（eBay scrape）",
       "seller": "GoCreative",
-      "url": "",
-      "host": "",
+      "url": "https://api.gocreativeai.com/v1/scrape/ebay/iphone",
+      "host": "api.gocreativeai.com",
       "method": "GET",
-      "httpStatus": null,
-      "latencyMs": null,
-      "probedAt": "2026-10-20T06:15:03.581Z",
-      "accepts": [],
-      "error": "ホスト未特定"
+      "httpStatus": 502,
+      "latencyMs": 248,
+      "probedAt": "2026-10-20T08:44:52.684Z",
+      "accepts": []
     },
     {
       "label": "BlockRun（chat completions）",
@@ -303,8 +302,8 @@
       "host": "blockrun.ai",
       "method": "POST",
       "httpStatus": 402,
-      "latencyMs": 218,
-      "probedAt": "2026-10-20T06:15:03.581Z",
+      "latencyMs": 215,
+      "probedAt": "2026-10-20T08:44:52.932Z",
       "accepts": [
         {
           "protocol": "x402",

@@ -21,7 +21,9 @@ AgentCore の資格情報             コントロールプレーンが無効ト
 - **https://x402.org/protected**（GET）。x402 v2 の `PAYMENT-REQUIRED` ヘッダで
   `exact / eip155:84532 / amount 10000（$0.01）/ asset 0x036CbD53…CF7e（Base Sepolia USDC）/ payTo 0x209693Bc…287C` を返す。
   Solana devnet の accept も併記されるが、instrument が ETHEREUM なので選ばれない（さらに payTo allowlist で削る）。
-- 選定理由: x402 の仕様を持つ x402.org が運営する公式デモで、testnet 専用・少額・安定している。MPP は返さない。
+- 選定理由: x402 の仕様を持つ x402.org が運営する公式デモで、testnet 専用・少額。MPP は返さない。
+- ただし 2026-10-20 に一時的な 5xx を観測した（probe で 500、続けて 502 → 402 → 402）。AC-2 の 10 回計測で 5xx が出たら
+  失敗率に数え、`runs.jsonl` に残る。続くようなら予備の売り手に切り替える（payTo が違うので allowlist に足してから）。
 - 予備: `https://x402.payai.network/api/base-sepolia/paid-content`（PayAI）、`https://x402.nodeventures.io/check`。
 - egress: このセッションでは全部届く。allowlist 運用の環境で要るホストは下の「allowlist 運用の環境向けのホスト一覧」。
 - 支払い先 allowlist（`config/payto-allowlist.json`）に x402.org の payTo × eip155:84532 だけを入れてある。
@@ -34,6 +36,16 @@ AgentCore の資格情報             コントロールプレーンが無効ト
 - **CDP アカウントは要る**（サインイン／サインアップと CDP プロジェクトの選択がある）。Wallet Secret が既にあるプロジェクトでは失敗する。
 - AWS Marketplace の「Coinbase Wallets for AgentCore Payments」の購読が要る（無いと SubscriptionRequiredException）。
 - Quick create は Coinbase のみ。Stripe（Privy）は manual のみ。
+- **料金**（2026-10-20 の公開情報）:
+  - Marketplace の「Coinbase Wallets for AgentCore Payments」（https://aws.amazon.com/marketplace/pp/prodview-ia2zd5puqyi7g、
+    売り手 Coinbase Developer Platform、SaaS、USAGE）。購読料・契約・最低料金は無い。課金は
+    **wallet operation（作成・署名・ブロードキャスト）1 回 $0.005** の従量のみ。請求は AWS の請求書にまとめて来る（Coinbase からの別請求は無い）。
+  - AgentCore 側で課金対象になるのは CreatePaymentInstrument（Coinbase では 1 回 = 1 operation）と ProcessPayment（1 回 = 1 operation）だけ。
+    AgentCore payments 自体の追加料金は無い（aws.amazon.com/bedrock/agentcore/pricing/）。
+  - AWS docs（payments-marketplace-subscription.html）は「購読に追加料金は無く、Coinbase の無料枠の対象のまま」とし、
+    CDP の料金ページは「月 5,000 operation まで無料」。ただし Marketplace の掲載には無料枠の記載が無く、Marketplace の従量計上から
+    無料枠が差し引かれるかは未確認。
+  - 購読する IAM 主体には `AWSMarketplaceManageSubscriptions` が要る。Privy の connector は購読不要。
 - 続き（instrument と session）は `npm run provision -- --mode=manual --vendor=coinbase` に、コンソールで作られた
   `AGENTCORE_PAYMENT_MANAGER_ARN` と `AGENTCORE_PAYMENT_CONNECTOR_ID` を env で渡して作る（既存を READY 確認するだけで作り直さない）。
 

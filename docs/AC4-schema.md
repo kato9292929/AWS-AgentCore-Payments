@@ -68,11 +68,35 @@ OneSource   api.onesource.io /api/chain/block-number                GET    x402 
 2s          2s.io /api/medical/icd10                                GET    x402 v2 exact, eip155:8453 + solana, $0.0025
 2s          2s.io /api/ai/chat                                      POST   x402 v2 exact + upto, eip155:8453, $0.0025（upto は上限）
 Otto AI     x402.ottoai.services /dns-lookup                        GET    x402 v2 exact, eip155:8453 + solana, $0.001
-GoCreative  未特定                                                  -      x402 Bazaar にも検索にも見つからない
+GoCreative  api.gocreativeai.com /v1/scrape/ebay/{arg}                 GET    2026-10-20 は 502（API サーバ停止中）。x402scan の保存値（2026-09-16）は
+                                                                           x402 v2 exact, eip155:8453, $0.05, payTo 0xbaf55b24…53cc（+ Solana）
 BlockRun    blockrun.ai /api/v1/chat/completions                    POST   x402 v2 exact のみ, eip155:8453, $0.002（リクエストごとに見積もり）
 ```
 
-- 対象リストは `config/probe-targets.json`。GoCreative のホストが分かれば url を埋めるだけで probe と変換に乗る。
+- 対象リストは `config/probe-targets.json`。GoCreative は API が復旧すれば同じコマンドで 402 が取れる（今は 502 の行が残る）。
+
+### GoCreative を探した場所（2026-10-20）
+
+```
+場所                                                       結果
+---------------------------------------------------------  ------------------------------------------------------------------
+x402 Bazaar（discovery/resources、26,005 件のダンプ）       0 件（"creative" を含む 194 件は無関係）
+x402 Bazaar の検索パラメータ（query/search/q）              無視されて全件が返る。402index は 71 件を Bazaar 由来としている
+x402scan トップ・/search・/api/search・/resources           一致なし / 404
+x402scan の REST（/api/x402/*）                            有料（402）のため使っていない
+x402scan のサイト検索（tRPC origins.search / resources.search, "gocreative"）
+                                                           発見: api / omnicall / gateway / predict.gocreativeai.com、668 リソース
+402index.io（/api/v1/services?q=gocreative）                発見: gocreativeai.com の 794 件、すべて down（2026-09-19 以降失敗続き）
+awesome-x402（holistis, xpaysh）                            発見: "GoCreative AI (https://api.gocreativeai.com) … USDC on Base via x402"
+MCP Registry                                                発見: io.github.ColinHughes2121/gocreative-agent-api ほか com.gocreativeai.* 6 件
+x402.org/ecosystem                                          404
+Web 検索 "GoCreative x402"                                  glama / pulsemcp / 402index のページ
+Wayback Machine                                             429（未確認）
+```
+
+同一の売り手と判断した根拠: 全ホストの payTo が同じ 2 アドレス、`com.gocreativeai.*` の MCP 名前空間（ドメイン所有が必要）、
+PyPI の `gocreative-wedge-mcp` の既定 URL が api.gocreativeai.com。`gocreative.ai` は無関係のサイト。
+gocreativeai.com 本体は不動産エージェント向けの AI マーケティングで、x402 API は同じブランドの別事業。
 - すべて Base mainnet（または Solana mainnet / Tempo）。mainnet の実払いは AC-3b と同じ条件（本人の可・`--allow-mainnet`・
   payTo allowlist・セッション $0.20・総額 $1）でのみ行う。それまでは probe-only の行だけが出る。
 - **AA 列は空欄で出力する。** AA 側のデータ取得はこのリポジトリの範囲外。
