@@ -75,6 +75,25 @@ if (findKeyMaterial(clean).length !== 0) {
   problems.push("findKeyMaterial が正しく伏せた値を誤検出した");
 }
 
+// 支払い署名（ProcessPayment の paymentOutput / upto の permit2Authorization）は中身ごと落とす。
+// AC-3 で承認を 1 に縮めるときに生成される、使わない署名がログに残らないことの確認。
+{
+  const proof = {
+    processPaymentId: "pp-123",
+    status: "PROOF_GENERATED",
+    paymentOutput: { cryptoX402: { version: "2", payload: { signature: `0x${"ab".repeat(65)}` } } },
+    payload: { permit2Authorization: { permitted: { amount: "1" }, nonce: "42" } },
+  };
+  const out = redact(proof) as Record<string, any>;
+  if (out["paymentOutput"] !== REDACTED) problems.push("paymentOutput が伏せられていない");
+  if (out["payload"]?.["permit2Authorization"] !== REDACTED) problems.push("permit2Authorization が伏せられていない");
+  if (out["processPaymentId"] !== "pp-123" || out["status"] !== "PROOF_GENERATED") {
+    problems.push("processPaymentId / status まで消えた（残すべき値）");
+  }
+  if (findKeyMaterial(JSON.stringify(proof)).length === 0) problems.push("findKeyMaterial が生の paymentOutput を見逃した");
+  if (findKeyMaterial(JSON.stringify(out)).length !== 0) problems.push("findKeyMaterial が伏せた paymentOutput を誤検出した");
+}
+
 if (problems.length > 0) {
   console.error("NG:\n" + problems.map((p) => ` - ${p}`).join("\n"));
   process.exit(1);
@@ -84,7 +103,7 @@ console.log(
     {
       check: "redaction",
       result: "ok",
-      note: "偽の鍵素材を6パターン流し、すべて伏せられること／tx参照は残ることを確認",
+      note: "偽の鍵素材を6パターン流し、すべて伏せられること／tx参照は残ることを確認。支払い署名（paymentOutput / permit2Authorization）は中身ごと落ち、processPaymentId と status は残ることを確認",
     },
     null,
     2,

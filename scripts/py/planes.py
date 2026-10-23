@@ -176,8 +176,13 @@ def _summarize(payment_input: Dict[str, Any]) -> Dict[str, Any]:
 def spy(manager: Any, plane_name: str = "agentcore") -> List[CallLog]:
     """本物の PaymentManager の process_payment 呼び出しを記録する。戻り値のリストに追記される。"""
     client = manager._payment_client
+    # 2 回呼ばれても二重に包まない（包むと外側の記録に内側の呼び出しが混ざる）。同じリストを返す。
+    existing = getattr(client, "_spy_calls", None)
+    if existing is not None:
+        return existing
     original: Callable[..., Dict[str, Any]] = client.process_payment
     calls: List[CallLog] = []
+    client._spy_calls = calls
 
     def wrapped(**params: Any) -> Dict[str, Any]:
         log = CallLog(
@@ -226,8 +231,14 @@ _HEX32 = re.compile(r"\b0x[0-9a-fA-F]{64}\b")
 _PEM = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")
 
 
+_DROP_FIELDS = {"paymentoutput", "permit2authorization"}  # 支払い署名は中身ごと捨てる（src/guard/redact.ts と同じ）
+
+
 def scrub(value: Any, key: str = "") -> Any:
-    """鍵らしいフィールド名と、許可されていないフィールドの 32byte hex / PEM を伏せる。"""
+    """鍵らしいフィールド名と、許可されていないフィールドの 32byte hex / PEM を伏せる。
+    支払い署名（paymentOutput / permit2Authorization）は型にかかわらず中身ごと伏せる。"""
+    if key and key.lower() in _DROP_FIELDS:
+        return "[REDACTED]"
     if isinstance(value, str):
         k = re.sub(r"[^a-z_]", "", key.lower())
         if k and any(re.sub(r"[^a-z_]", "", h) in k for h in _SECRET_KEY_HINTS):

@@ -31,17 +31,20 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { createPublicClient, formatEther, http } from "viem";
-import { baseSepolia } from "viem/chains";
+import { createPublicClient, formatEther, http, type PublicClient } from "viem";
 import { assertNoMainnetConfig } from "../../src/guard/network.js";
 import { redact } from "../../src/guard/redact.js";
+import { PayToAllowlist } from "../../src/guard/payToAllowlist.js";
+import { permit2Allowance, permit2Approvals, shrinkAllowance } from "./allowance.js";
 
 const MODE = process.argv.find((a) => a.startsWith("--mode="))?.slice(7) ?? "harness-local";
 const N = Number(process.argv.find((a) => a.startsWith("--n="))?.slice(4) ?? 20);
 const OUT_DIR = resolve(process.env["AC3_OUT_DIR"] ?? "artifacts/ac3");
 const REGION = process.env["AWS_REGION"] ?? "us-east-1";
 const FACILITATOR = process.env["AC3_FACILITATOR"] ?? "https://x402.org/facilitator";
-const PERMIT2_LIMIT = process.env["AGENTCORE_PERMIT2_ALLOWANCE_LIMIT"] ?? "1000000"; // 1 USDC
+// セッション上限（$0.20）と同じ 0.20 USDC。試験の最後に 1 まで縮める（shrinkAllowance）
+const PERMIT2_LIMIT = process.env["AGENTCORE_PERMIT2_ALLOWANCE_LIMIT"] ?? "200000";
+const USDC_BASE_SEPOLIA = "0x036CbD53842c5426634e7929541eC2318f3dCF7e" as const;
 
 function write(name: string, data: unknown): void {
   mkdirSync(OUT_DIR, { recursive: true });
@@ -205,29 +208,41 @@ async function live(): Promise<void> {
   const port = 8415;
   const mock = await startMock(port, { MOCK_UPTO_FACILITATOR: FACILITATOR });
   const plane = new BedrockAgentCoreClient({ region: REGION, maxAttempts: 1 });
-  const chain = createPublicClient({ chain: baseSepolia, transport: http(process.env["BASE_SEPOLIA_RPC"]) });
+  // chain 定義を渡すと OP Stack の型が PublicClient と合わないので、RPC の URL だけで作る
+  const chain: PublicClient = createPublicClient({ transport: http(process.env["BASE_SEPOLIA_RPC"] ?? "https://sepolia.base.org") });
   const eth = async (): Promise<string | null> => (wallet ? formatEther(await chain.getBalance({ address: wallet })) : null);
+  const allowance = async (): Promise<string | null> => (wallet ? permit2Allowance(chain, USDC_BASE_SEPOLIA, wallet) : null);
 
-  const session = await plane.send(
-    new CreatePaymentSessionCommand({
-      paymentManagerArn: managerArn,
-      userId,
-      agentName: "ac3-runner",
-      limits: { maxSpendAmount: { value: "0.20", currency: "USD" } },
-      expiryTimeInMinutes: 30,
-      clientToken: randomUUID(),
-    }),
-  );
-  const sessionId = session.paymentSession!.paymentSessionId!;
-  const budget = async (): Promise<string | null> => {
-    const r = await plane.send(new GetPaymentSessionCommand({ paymentManagerArn: managerArn, paymentSessionId: sessionId, userId }));
+  const openSession = async (maxUsd: string): Promise<string> => {
+    const r = await plane.send(
+      new CreatePaymentSessionCommand({
+        paymentManagerArn: managerArn,
+        userId,
+        agentName: "ac3-runner",
+        limits: { maxSpendAmount: { value: maxUsd, currency: "USD" } },
+        expiryTimeInMinutes: 30,
+        clientToken: randomUUID(),
+      }),
+    );
+    return r.paymentSession!.paymentSessionId!;
+  };
+  const budgetOf = async (sid: string): Promise<string | null> => {
+    const r = await plane.send(new GetPaymentSessionCommand({ paymentManagerArn: managerArn, paymentSessionId: sid, userId }));
     const a = r.paymentSession?.availableLimits?.availableSpendAmount;
     return a ? `${a.value} ${a.currency}` : null;
   };
+  const closeSession = (sid: string) =>
+    plane.send(new DeletePaymentSessionCommand({ paymentManagerArn: managerArn, paymentSessionId: sid, userId })).catch(() => undefined);
 
   const url = `http://127.0.0.1:${port}/x402/v2/upto`;
   const calls: Array<Record<string, unknown>> = [];
   let firstRejected: number | null = null;
+  const startBlock = await chain.getBlockNumber();
+  const allowanceBeforeTest = await allowance();
+  let allowanceAfterTest: string | null = null;
+  let shrink: Record<string, unknown> | null = null;
+  const sessionId = await openSession("0.20");
+  const budget = () => budgetOf(sessionId);
   try {
     for (let i = 1; i <= N; i++) {
       const r402 = await fetch(url);
@@ -286,16 +301,39 @@ async function live(): Promise<void> {
       if (rec["error"]) break;
     }
   } finally {
-    await plane
-      .send(new DeletePaymentSessionCommand({ paymentManagerArn: managerArn, paymentSessionId: sessionId, userId }))
-      .catch(() => undefined);
+    await closeSession(sessionId);
+    allowanceAfterTest = await allowance().catch(() => null);
+    // 試験が途中で止まっても、承認を出した可能性があれば必ず縮める（testnet は自動）
+    if (calls.length > 0) {
+      shrink = await shrinkAllowance({
+        plane,
+        chain,
+        managerArn,
+        instrumentId,
+        userId,
+        wallet,
+        usdc: USDC_BASE_SEPOLIA,
+        payTo: PayToAllowlist.load(),
+        fresh402: async () => {
+          const r = await fetch(url);
+          return JSON.parse(Buffer.from(r.headers.get("payment-required")!, "base64").toString("utf8"));
+        },
+        openSession,
+        budgetOf,
+        closeSession,
+      }).catch((e) => ({ executed: false, error: (e as Error).message }));
+    }
     stopMock(mock);
   }
+
+  const approvals = wallet ? await permit2Approvals(chain, USDC_BASE_SEPOLIA, wallet, startBlock).catch(() => []) : [];
   const first = calls[0] ?? {};
-  const gasEth =
+  const firstApproval = approvals.find((a) => a.value === PERMIT2_LIMIT) ?? null;
+  const gasEthByBalance =
     first["eth_before"] && first["eth_after_approve"]
       ? (Number(first["eth_before"]) - Number(first["eth_after_approve"])).toFixed(12)
       : null;
+  const processPaymentCalls = calls.filter((c) => c["processPaymentId"] || c["error"]).length;
   write("live", {
     mode: "live",
     executed: true,
@@ -309,8 +347,26 @@ async function live(): Promise<void> {
     permit2AllowanceLimit_first_call_only: PERMIT2_LIMIT,
     first_rejected_call: firstRejected,
     successful_calls: calls.filter((c) => !c["error"]).length,
-    approve_gas_eth: gasEth,
-    approve_gas_note: wallet ? "初回の前後でウォレットの ETH 残高差（approve 以外に ETH を使う操作は無い前提）" : "AGENTCORE_WALLET_ADDRESS が無いので測っていない",
+    approve_tx: firstApproval,
+    approve_gas_eth: firstApproval?.gasCostEth ?? gasEthByBalance,
+    approve_gas_note: !wallet
+      ? "AGENTCORE_WALLET_ADDRESS が無いので測っていない"
+      : firstApproval
+        ? "USDC の Approval イベント（owner=wallet, spender=Permit2）から引いた tx の gasUsed × effectiveGasPrice"
+        : "Approval イベントが見つからないので、初回前後の ETH 残高差",
+    allowance_permit2: {
+      unit: "USDC の最小単位（6 decimals）",
+      before_test: allowanceBeforeTest,
+      after_test: allowanceAfterTest,
+      after_shrink: (shrink?.["allowance_after"] as string | undefined) ?? null,
+    },
+    shrink,
+    wallet_operations: {
+      test_process_payment: processPaymentCalls,
+      shrink_process_payment: shrink?.["executed"] ? 1 : 0,
+      fee_per_operation_usd: "0.005",
+      note: "Coinbase では ProcessPayment 1 回 = wallet operation 1 回（AgentCore 料金ページ）。provision 時の CreatePaymentInstrument 1 回は含めない",
+    },
     calls,
   });
 }

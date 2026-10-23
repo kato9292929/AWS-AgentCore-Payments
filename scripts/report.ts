@@ -232,6 +232,35 @@ npx tsx scripts/report.ts
 }
 
 // ---------------------------------------------------------------- AC-3
+/** 承認額の 3 時点（試験前・試験後・縮めた後）と、縮めるステップの gas・予算・ウォレット操作回数の行。 */
+function allowanceRows(label: string, d: J | undefined, state: string): string[][] {
+  const a = d?.["allowance_permit2"] ?? {};
+  const sh = d?.["shrink"] ?? {};
+  const ops = d?.["wallet_operations"] ?? {};
+  const n = Number(ops["test_process_payment"] ?? 0) + Number(ops["shrink_process_payment"] ?? 0);
+  return [
+    [
+      label,
+      "Permit2 の allowance（試験前 → 試験後 → 縮めた後）",
+      d ? `${a["before_test"] ?? "-"} → ${a["after_test"] ?? "-"} → ${a["after_shrink"] ?? "-"}（${sh["allowance_is_1"] ? "1 を確認" : "1 を確認できず"}）` : "-",
+      state,
+    ],
+    [
+      label,
+      "縮めるステップ（approve を 1 に）の gas 代",
+      d ? `${sh["approve_gas_eth"] ?? "-"} ETH（tx ${String(sh["approve_tx"]?.["txHash"] ?? "-").slice(0, 12)}…）` : "-",
+      state,
+    ],
+    [label, "縮めるステップの予算の減り方", d ? `${sh["budget_before"] ?? "-"} → ${sh["budget_after"] ?? "-"}（専用セッション $0.01）` : "-", state],
+    [
+      label,
+      "ウォレット操作の回数（$0.005/回）",
+      d ? `試験 ${ops["test_process_payment"] ?? 0} 回 + 縮める 1 回 = ${n} 回（$${(n * 0.005).toFixed(3)}）` : "-",
+      state,
+    ],
+  ];
+}
+
 function ac3(): { md: string; tableText: string } {
   const h = A("ac3/harness-local.json");
   const fp = A("ac3/facilitator-probe.json");
@@ -256,7 +285,9 @@ function ac3(): { md: string; tableText: string } {
       liveRan ? `${lv!["successful_calls"]} 回成功、最初の拒否 ${lv!["first_rejected_call"] ?? "なし"} 回目（4=上限額 / 16=実額+空き要求 / 20=実額）` : "-",
       liveRan ? "実測" : notRun(lv, "資格情報なし"),
     ],
-    ["AC-3a", "approve の gas 代（初回のみ permit2AllowanceLimit）", liveRan ? `${lv!["approve_gas_eth"] ?? "-"} ETH` : "-", liveRan ? "実測" : notRun(lv, "資格情報なし")],
+    ["AC-3a", "承認額（初回のみ permit2AllowanceLimit）", "200000（0.20 USDC。セッション上限と同じ）", "設定"],
+    ["AC-3a", "approve の gas 代", liveRan ? `${lv!["approve_gas_eth"] ?? "-"} ETH` : "-", liveRan ? "実測" : notRun(lv, "資格情報なし")],
+    ...allowanceRows("AC-3a", liveRan ? lv : undefined, liveRan ? "実測" : notRun(lv, "資格情報なし")),
     [
       "AC-3a",
       "upto facilitator",
@@ -277,12 +308,14 @@ function ac3(): { md: string; tableText: string } {
       s2?.["paid"] ? paidRuns(s2).map((r) => `${r["budget_before"]}→${r["budget_after_settle_5s"]}`).join(", ") : "-",
       s2?.["paid"] ? "実測" : "未実施（本人判断待ち。--allow-mainnet なしでは署名しない）",
     ],
+    ["AC-3b", "2s の承認額（初回のみ permit2AllowanceLimit）", "10000（0.01 USDC）", "設定"],
     [
       "AC-3b",
       "2s の approve の gas 代（Base mainnet）",
       s2?.["paid"] ? `${s2["approve_gas_eth"] ?? "-"} ETH` : "-",
       s2?.["paid"] ? "実測" : "未実施（同上）",
     ],
+    ...allowanceRows("AC-3b", s2?.["paid"] ? s2 : undefined, s2?.["paid"] ? "実測" : "未実施（同上）"),
     [
       "AC-3b",
       "BlockRun（exact の参照値）",
@@ -322,6 +355,25 @@ settle 応答に額が無ければ上限額で確定する（少なく見積も�
 - 買い手は事前に USDC を Permit2 へ approve しておく必要がある。AgentCore では \`cryptoX402.permit2AllowanceLimit\` を渡すと
   サービスが署名前にオンチェーンで approve を出す（ガスはウォレットのネイティブトークン）。approve は「設定」なので**初回だけ**渡す
   （\`src/backends/agentcore.ts\` はセッション内の初回 upto だけ \`AGENTCORE_PERMIT2_ALLOWANCE_LIMIT\` を付ける）
+
+## 承認額と、試験後に残る承認（AC-3a / AC-3b 共通）
+
+- 承認額は総額上限ではなく小さく取る: AC-3a（testnet）は **0.20 USDC（200000）＝セッション上限**、AC-3b の 2s は **0.01 USDC（10000）**。
+  BlockRun は exact（EIP-3009）なので承認しない。
+- 試験の最後に承認を **1（0.000001 USDC）に縮める**。AgentCore には承認だけを出す API が無く、\`permit2AllowanceLimit\` は
+  正の整数しか受けない（SDK の検証で 0 は拒否）ので、次の手順で行う（\`shrinkAllowance\` / \`shrink_allowance\`）:
+  1. 試験と同じ allowlist 内の売り手から 402 を取り直す（payTo が allowlist に無ければ何もしない）
+  2. upto の accept の金額を 1 に書き換え、\`permit2AllowanceLimit="1"\` で ProcessPayment を 1 回呼ぶ（上限 $0.01 の専用セッション）。
+     サービスが署名の前に approve(Permit2, 1) を出す
+  3. このとき生成される支払い署名（paymentOutput）は**どこにも送らず、ログにも残さない**。記録するのは processPaymentId・status・
+     承認 tx・gas・予算の変化だけ（\`paymentOutput\` と \`permit2Authorization\` は TS の redact / Python の scrub が中身ごと落とし、
+     \`check:secrets\` / \`check:keys\` が残っていれば落ちる）
+  4. RPC で \`USDC.allowance(wallet, Permit2)\` を読み、1 になったことを確かめる。試験前・試験後・縮めた後の 3 時点を表に残す
+- testnet（AC-3a）は自動で実行する。mainnet（AC-3b）は \`--allow-mainnet\` のときだけ（支払い自体がそのときだけ走る）。
+- 承認 tx のハッシュは ProcessPayment が返さないので、USDC の Approval イベント（owner=ウォレット、spender=Permit2）から引く。
+  公開 RPC は eth_getLogs を 200 ブロックに制限するので刻んで引いている。
+- **完全に 0 にするには、ウォレット側で \`USDC.approve(Permit2, 0)\` を送る必要がある。AgentCore の API からはできない。**
+  試験後に残る承認は 0.000001 USDC（1）。
 - AgentCore docs の制約: upto は x402 v2・EVM・\`extra.facilitatorAddress\` 必須。exact に permit2AllowanceLimit を渡すと ValidationException
 - Base Sepolia で upto を提示する公開売り手は見つからなかった（Bazaar の upto 806 件はすべて mainnet）。そのため模擬売り手に upto を足し、
   settle は x402.org facilitator（\`MOCK_UPTO_FACILITATOR\`）に実際に投げる構成にした
@@ -340,8 +392,9 @@ settle 応答に額が無ければ上限額で確定する（少なく見積も�
   （スクリプトは各回 402 を取り直している）。
 - 2s の upto では、各回の前後と settle 5 秒後に残予算を取り、1 回あたりの減り方が上限額（$0.0025）か実額かを直接見る
   （上限額が小さいので、セッション上限 $0.20 に当てて回数で見る方法は使わない。既定 3 回）。
-- 初回だけ \`permit2AllowanceLimit\`（既定 1 USDC ＝ 総額上限と同じ）を渡す。Base mainnet で Permit2 への approve が
-  オンチェーンで出るので、**ウォレットに Base mainnet の ETH が少し要る**。試験後も approve は残る（取り消すなら USDC.approve(Permit2, 0)）。
+- 初回だけ \`permit2AllowanceLimit\`＝0.01 USDC を渡し、最後に 1 に縮める（上の「承認額と、試験後に残る承認」）。
+  Base mainnet で approve が 2 回オンチェーンで出るので、**ウォレットに Base mainnet の ETH が少し要る**。
+  ガス代は測る支払い額（1 回 $0.0025 以下）より大きくなる可能性が高い。
 - ガード（変えていない）: \`--allow-mainnet\` が無ければ署名しない／payTo は \`config/payto-allowlist.mainnet.json\` のうち
   **その売り手の payTo だけ**（2s を払う設定で BlockRun の payTo は通らない。逆も。\`npm run check:py\` で確認）／
   セッション上限 $0.20／総額 $1.00（\`artifacts/ac3/mainnet-ledger.json\` に累計。上限額で見積もって超えるなら署名しない）／
@@ -350,7 +403,7 @@ settle 応答に額が無ければ上限額で確定する（少なく見積も�
 ## live で埋める手順
 
 \`\`\`bash
-export AGENTCORE_WALLET_ADDRESS=0x...          # provision の出力（approve の gas を ETH 残高差で測る）
+export AGENTCORE_WALLET_ADDRESS=0x...          # provision の出力（allowance と approve の tx を RPC で引く）
 npm run ac3 -- --mode=live --n=20               # 模擬売り手を 8415 で起動し、x402.org facilitator で settle
 python scripts/ac3/ac3b_mainnet.py --allow-mainnet   # AC-3b（本人が可とした場合のみ）
 npx tsx scripts/report.ts

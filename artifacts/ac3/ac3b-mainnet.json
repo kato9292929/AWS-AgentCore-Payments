@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-20T08:42:50Z",
+  "measuredAt": "2026-10-23T05:47:50Z",
   "guards": {
     "allow_mainnet": false,
     "session_cap_usd": "0.20",
@@ -44,7 +44,7 @@
             "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
             "payTo": "0x2b6D4988Db4723E6908Db86Ab2b8dFBc51FC32C5",
             "maxTimeoutSeconds": 360,
-            "facilitatorAddress": "0x68A96F41ff1e9F2E7b591A931A4AD224e7C07863",
+            "facilitatorAddress": "0x8F5cB67B49555E614892b7233CFdDEBFB746E531",
             "extra_name": "USD Coin"
           }
         ],

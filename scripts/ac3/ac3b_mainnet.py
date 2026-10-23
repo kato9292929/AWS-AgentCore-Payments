@@ -26,8 +26,9 @@
   AGENTCORE_WALLET_ADDRESS=0x... python scripts/ac3/ac3b_mainnet.py --allow-mainnet [--seller=2s|blockrun|2s,blockrun]
 
 出力: artifacts/ac3/ac3b-mainnet.json
-注意: upto の初回に Permit2 へ USDC の approve（既定 1 USDC = 総額上限と同じ）が残る。試験後に取り消すなら
-      USDC.approve(Permit2, 0) をウォレットから出す（ガスが要る）。
+承認: 2s の初回に Permit2 へ 0.01 USDC を approve し、試験の最後に 1（0.000001 USDC）まで縮める（shrink_allowance）。
+      縮めた後の allowance は RPC で読んで記録する。完全に 0 にするには、ウォレット側で USDC.approve(Permit2, 0) を
+      送る必要がある（AgentCore の API からはできない。permit2AllowanceLimit は正の整数のみ）。
 """
 
 from __future__ import annotations
@@ -49,6 +50,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "examples"))
 sys.path.insert(0, str(ROOT / "scripts" / "py"))
 from payto_guard import PayToAllowlist, PayToRejected  # noqa: E402
+from chain import Chain  # noqa: E402
 from planes import scrub  # noqa: E402
 
 SELLERS: Dict[str, Dict[str, Any]] = {
@@ -58,6 +60,8 @@ SELLERS: Dict[str, Dict[str, Any]] = {
         "role": "upto の実測対象",
         "scheme": "upto",
         "max_calls": 3,
+        # 1 回の上限が $0.0025 なので 0.01 USDC で足りる（試験の最後に 1 まで縮める）
+        "permit2_limit": "10000",
     },
     "blockrun": {
         "url": "https://blockrun.ai/api/v1/chat/completions",
@@ -74,6 +78,8 @@ TOTAL_CAP = Decimal("1.00")
 PER_CALL_CAP = Decimal("0.05")
 SESSION_CAP = "0.20"
 BASE_RPC = os.environ.get("BASE_MAINNET_RPC", "https://mainnet.base.org")
+USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+FEE_PER_WALLET_OP_USD = "0.005"
 
 
 def get_402(seller: Dict[str, Any]) -> Dict[str, Any]:
@@ -169,18 +175,91 @@ def budget(mgr: Any, sid: str, user: str) -> Optional[str]:
     return f"{a.get('value')} {a.get('currency')}" if a else None
 
 
+def resolve_wallet(mgr: Any, user: str, inst: str) -> Optional[str]:
+    if os.environ.get("AGENTCORE_WALLET_ADDRESS"):
+        return os.environ["AGENTCORE_WALLET_ADDRESS"]
+    try:
+        d = mgr.get_payment_instrument(payment_instrument_id=inst, user_id=user)
+        return ((d.get("paymentInstrumentDetails") or {}).get("embeddedCryptoWallet") or {}).get("walletAddress")
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def shrink_allowance(key: str, mgr: Any, user: str, inst: str, chain: Chain, wallet: Optional[str]) -> Dict[str, Any]:
+    """試験の最後に Permit2 の承認を 1（0.000001 USDC）に縮める。--allow-mainnet のときだけ呼ばれる。
+
+    AgentCore には承認だけを出す API が無く、permit2AllowanceLimit は正の整数しか受けない（0 にはできない）。
+    同じ売り手から取り直した 402 の upto accept を金額 1 に書き換え、permit2AllowanceLimit="1" で ProcessPayment を 1 回呼ぶ。
+    サービスは署名の前に approve(Permit2, 1) を出す。生成された支払い署名（paymentOutput）は使わず、変数にも残さない。
+    記録するのは processPaymentId・status・承認 tx・gas・予算の変化・縮めた後の allowance だけ。
+    """
+    seller = SELLERS[key]
+    req = keep_scheme(get_402(seller), "upto")
+    try:
+        req, _ = allowlist_for(key).filter_402(req)
+    except PayToRejected as e:
+        return {"executed": False, "reason": f"allowlist（{key} の payTo のみ）: {e}"}
+    accepts = required_of(req).get("accepts", [])
+    if not accepts:
+        return {"executed": False, "reason": "取り直した 402 に upto が無い"}
+    accept = {**accepts[0], "amount": "1"}  # 署名する金額も最小にする（この署名は使わない）
+    sess = mgr.create_payment_session(expiry_time_in_minutes=15, user_id=user,
+                                      limits={"maxSpendAmount": {"value": "0.01", "currency": "USD"}})
+    sid = sess.get("paymentSessionId") or sess.get("paymentSession", {}).get("paymentSessionId")
+    from_block = chain.block_number()
+    out: Dict[str, Any] = {
+        "executed": True,
+        "permit2AllowanceLimit": "1",
+        "signed_amount_atomic": "1",
+        "session": "専用（上限 $0.01）",
+        "facilitatorAddress": (accept.get("extra") or {}).get("facilitatorAddress"),
+        "allowance_before": chain.allowance(USDC_BASE, wallet) if wallet else None,
+        "budget_before": budget(mgr, sid, user),
+    }
+    try:
+        res = mgr.process_payment(
+            payment_session_id=sid, payment_instrument_id=inst, payment_type="CRYPTO_X402", user_id=user,
+            payment_input={"cryptoX402": {"version": "2", "payload": accept, "permit2AllowanceLimit": "1"}},
+            client_token=str(uuid.uuid4()),
+        )
+        # paymentOutput（支払い署名）はここで捨てる
+        out["processPaymentId"] = res.get("processPaymentId")
+        out["status"] = res.get("status")
+        del res
+    except Exception as e:  # noqa: BLE001
+        out["error"] = f"{type(e).__name__}: {e}"
+    try:
+        out["budget_after"] = budget(mgr, sid, user)
+    finally:
+        try:
+            mgr.delete_payment_session(payment_session_id=sid, user_id=user)
+        except Exception:  # noqa: BLE001
+            pass
+    if wallet and "error" not in out:
+        out["approve_tx"] = chain.wait_for_approval(USDC_BASE, wallet, from_block, "1")
+        out["approve_gas_eth"] = (out["approve_tx"] or {}).get("gasCostEth")
+    out["allowance_after"] = chain.allowance(USDC_BASE, wallet) if wallet else None
+    out["allowance_is_1"] = out["allowance_after"] == "1"
+    return out
+
+
 def pay_seller(key: str, mgr: Any, user: str, inst: str, max_calls: Optional[int]) -> Dict[str, Any]:
     from planes import calls_to_json, spy
 
     seller = SELLERS[key]
     scheme = seller["scheme"]
     allow = allowlist_for(key)
-    calls = spy(mgr)
+    all_calls = spy(mgr)
+    n0 = len(all_calls)  # 売り手ごとの区切り（spy は manager ごとに 1 つのリストを共有する）
     sess = mgr.create_payment_session(expiry_time_in_minutes=15, user_id=user,
                                       limits={"maxSpendAmount": {"value": SESSION_CAP, "currency": "USD"}})
     sid = sess.get("paymentSessionId") or sess.get("paymentSession", {}).get("paymentSessionId")
-    wallet = os.environ.get("AGENTCORE_WALLET_ADDRESS")
+    wallet = resolve_wallet(mgr, user, inst)
+    chain = Chain(BASE_RPC)
+    start_block = chain.block_number()
+    allowance_before = chain.allowance(USDC_BASE, wallet) if wallet else None
     runs: List[Dict[str, Any]] = []
+    shrink: Optional[Dict[str, Any]] = None
     try:
         for i in range(1, (max_calls or seller["max_calls"]) + 1):
             r: Dict[str, Any] = {"i": i, "scheme": scheme}
@@ -212,7 +291,7 @@ def pay_seller(key: str, mgr: Any, user: str, inst: str, max_calls: Optional[int
                 r["error"] = f"総額 {ledger_total()} + {cap} > {TOTAL_CAP}（署名しない）"
                 runs.append(r)
                 break
-            permit2 = os.environ.get("AGENTCORE_PERMIT2_ALLOWANCE_LIMIT", "1000000") if (scheme == "upto" and i == 1) else None
+            permit2 = seller.get("permit2_limit") if (scheme == "upto" and i == 1) else None
             r["permit2AllowanceLimit"] = permit2
             r["budget_before"] = budget(mgr, sid, user)
             if permit2:
@@ -254,11 +333,41 @@ def pay_seller(key: str, mgr: Any, user: str, inst: str, max_calls: Optional[int
             mgr.delete_payment_session(payment_session_id=sid, user_id=user)
         except Exception:  # noqa: BLE001
             pass
+        allowance_after_test = chain.allowance(USDC_BASE, wallet) if wallet else None
+        # 承認を出した可能性があれば（upto で ProcessPayment を 1 回でも呼んだら）必ず縮める
+        if scheme == "upto" and len(all_calls) > n0:
+            try:
+                shrink = shrink_allowance(key, mgr, user, inst, chain, wallet)
+            except Exception as e:  # noqa: BLE001
+                shrink = {"executed": False, "error": f"{type(e).__name__}: {e}"}
+    calls = all_calls[n0:]
+    test_calls = len(calls) - (1 if shrink and shrink.get("executed") else 0)
+    approvals = chain.approvals(USDC_BASE, wallet, start_block) if wallet else []
+    first_approval = next((a for a in approvals if a["value"] == seller.get("permit2_limit")), None)
     first = runs[0] if runs else {}
-    gas = None
+    gas_by_balance = None
     if first.get("eth_before") and first.get("eth_after_approve"):
-        gas = str(Decimal(first["eth_before"]) - Decimal(first["eth_after_approve"]))
-    return {"paid": True, "runs": runs, "approve_gas_eth": gas, "process_payment": calls_to_json(calls)}
+        gas_by_balance = str(Decimal(first["eth_before"]) - Decimal(first["eth_after_approve"]))
+    return {
+        "paid": True,
+        "runs": runs,
+        "permit2AllowanceLimit_first_call_only": seller.get("permit2_limit"),
+        "approve_tx": first_approval,
+        "approve_gas_eth": (first_approval or {}).get("gasCostEth") or gas_by_balance,
+        "allowance_permit2": {
+            "unit": "USDC の最小単位（6 decimals）",
+            "before_test": allowance_before,
+            "after_test": allowance_after_test,
+            "after_shrink": (shrink or {}).get("allowance_after"),
+        } if scheme == "upto" else None,
+        "shrink": shrink,
+        "wallet_operations": {
+            "test_process_payment": test_calls,
+            "shrink_process_payment": 1 if shrink and shrink.get("executed") else 0,
+            "fee_per_operation_usd": FEE_PER_WALLET_OP_USD,
+        },
+        "process_payment": calls_to_json(calls),
+    }
 
 
 def main() -> int:

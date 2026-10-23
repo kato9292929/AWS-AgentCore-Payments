@@ -5,12 +5,14 @@
  *   - exact の計上は従来どおり（成立後に金額をそのまま計上）
  *   - --guards=agentcore-only は判定を残して止めない
  *   - x402 v2（PAYMENT-REQUIRED ヘッダ）の読み取りと testnet 判定
+ *   - AC-3a の承認を 1 に縮めるステップ（署名を残さない・allowlist・縮めた後の allowance）
  */
 import { loadConfig, usdToAtomic } from "../src/config.js";
 import { SpendLimiter } from "../src/guard/limits.js";
 import { assertTestnetNetwork, MainnetDetected } from "../src/guard/network.js";
 import { PayToAllowlist } from "../src/guard/payToAllowlist.js";
 import { parse402 } from "../src/rails/x402.js";
+import { shrinkAllowance } from "./ac3/allowance.js";
 
 const results: Array<{ name: string; ok: boolean; detail?: unknown }> = [];
 const check = (name: string, ok: boolean, detail?: unknown): void => {
@@ -132,6 +134,73 @@ const cfg = loadConfig();
     halted = e instanceof MainnetDetected;
   }
   check("network: eip155:8453（Base mainnet）は停止側", halted);
+}
+
+// ---- AC-3a: 試験の最後に Permit2 の承認を 1 に縮める（偽の AgentCore と偽のチェーン。通信なし） ----
+{
+  const FAKE_SIG = `0x${"ab".repeat(65)}`;
+  let allowanceNow = 200000n;
+  let approvedAt: bigint | null = null;
+  const sent: Array<Record<string, any>> = [];
+  const plane = {
+    send: async (cmd: { input: Record<string, any> }) => {
+      sent.push(cmd.input);
+      allowanceNow = BigInt(cmd.input["paymentInput"]["cryptoX402"]["permit2AllowanceLimit"]);
+      approvedAt = 101n;
+      return { processPaymentId: "pp-shrink", status: "PROOF_GENERATED", paymentOutput: { cryptoX402: { payload: { signature: FAKE_SIG } } } };
+    },
+  };
+  const chain = {
+    getBlockNumber: async () => 101n,
+    readContract: async () => allowanceNow,
+    getLogs: async ({ fromBlock, toBlock }: { fromBlock: bigint; toBlock: bigint }) =>
+      approvedAt !== null && approvedAt >= fromBlock && approvedAt <= toBlock
+        ? [{ transactionHash: `0x${"cd".repeat(32)}`, blockNumber: approvedAt, args: { value: allowanceNow } }]
+        : [],
+    getTransactionReceipt: async () => ({ gasUsed: 50000n, effectiveGasPrice: 10n }),
+  } as unknown as Parameters<typeof shrinkAllowance>[0]["chain"];
+  const opened: string[] = [];
+  const closed: string[] = [];
+  const deps = (payTo: string) => ({
+    plane: plane as never,
+    chain,
+    managerArn: "arn:aws:bedrock-agentcore:us-east-1:000000000000:payment-manager/x",
+    instrumentId: "inst",
+    userId: "user",
+    wallet: "0x00000000000000000000000000000000000000Aa" as const,
+    usdc: "0x036CbD53842c5426634e7929541eC2318f3dCF7e" as const,
+    payTo: allow,
+    fresh402: async () => ({
+      accepts: [{ scheme: "upto", network: "eip155:84532", amount: "50000", payTo, extra: { facilitatorAddress: "0xd407e409E34E0b9afb99EcCeb609bDbcD5e7f1bf" } }],
+    }),
+    openSession: async (maxUsd: string) => {
+      opened.push(maxUsd);
+      return "shrink-session";
+    },
+    budgetOf: async () => "0.01 USD",
+    closeSession: async (sid: string) => {
+      closed.push(sid);
+    },
+  });
+  const out = await shrinkAllowance(deps(MOCK_PAYTO));
+  const cx = sent[0]?.["paymentInput"]?.["cryptoX402"] ?? {};
+  const text = JSON.stringify(out);
+  check(
+    "shrink: upto・署名額 1・permit2AllowanceLimit=\"1\" で ProcessPayment を 1 回",
+    sent.length === 1 && cx.payload?.scheme === "upto" && cx.payload?.amount === "1" && cx.permit2AllowanceLimit === "1",
+    sent,
+  );
+  check("shrink: 専用セッション（$0.01）を開いて閉じる", opened.join() === "0.01" && closed.join() === "shrink-session", { opened, closed });
+  check("shrink: 結果に支払い署名（paymentOutput / signature）を残さない", !text.includes("paymentOutput") && !text.includes(FAKE_SIG), out);
+  check(
+    "shrink: processPaymentId・status・承認 tx・gas を残す",
+    out["processPaymentId"] === "pp-shrink" && out["status"] === "PROOF_GENERATED" && Boolean(out["approve_tx"]) && out["approve_gas_eth"] === "0.0000000000005",
+    out,
+  );
+  check("shrink: 縮めた後の allowance を RPC で読んで 1", out["allowance_before"] === "200000" && out["allowance_after"] === "1" && out["allowance_is_1"] === true, out);
+  const before = sent.length;
+  const rejected = await shrinkAllowance(deps("0x000000000000000000000000000000000000dEaD"));
+  check("shrink: allowlist に無い payTo の 402 なら ProcessPayment を呼ばない", rejected["executed"] === false && sent.length === before, rejected);
 }
 
 const ng = results.filter((r) => !r.ok);

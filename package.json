@@ -22,7 +22,7 @@
     "check:keys": "tsx scripts/check-keys-everywhere.ts",
     "ac4:probe": "tsx src/cli.ts --probe-only --label=ac4-probe --run-id=probe --out=artifacts/ac4 --endpoints=@config/probe-targets.json",
     "ac4:normalize": "tsx scripts/ac4/normalize.ts",
-    "check:py": "python3 scripts/ac2/check_payto_guard.py"
+    "check:py": "python3 scripts/ac2/check_payto_guard.py && python3 scripts/ac3/check_shrink.py"
   },
   "engines": {
     "node": ">=20"

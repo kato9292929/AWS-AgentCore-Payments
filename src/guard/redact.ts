@@ -56,6 +56,14 @@ const HASH_FIELD_ALLOWLIST = new Set([
 
 export const REDACTED = "[REDACTED]";
 
+/**
+ * 中身ごと捨てるフィールド（大文字小文字無視、完全一致）。
+ * ProcessPayment が返す支払い署名（paymentOutput）と upto の Permit2 署名データ（permit2Authorization）は、
+ * 鍵ではないが「売り手に出せば払える」証明そのもの。採取ログには形も値も残さない
+ * （AC-3 の承認を縮めるステップで生成される使わない署名も、ここで落ちる）。
+ */
+const DROP_FIELDS = new Set(["paymentoutput", "permit2authorization"]);
+
 /** ヘッダ値は構造だけ残して中身を伏せる。 */
 export function maskHeaderValue(name: string, value: string): string {
   const lower = name.toLowerCase();
@@ -78,6 +86,7 @@ function looksSecretKeyName(key: string): boolean {
 
 /** 任意の JSON 値を再帰的に伏せる。 */
 export function redact(value: unknown, keyName = ""): unknown {
+  if (keyName && DROP_FIELDS.has(keyName.toLowerCase())) return REDACTED;
   if (typeof value === "string") {
     if (keyName && looksSecretKeyName(keyName)) return REDACTED;
     if (HASH_FIELD_ALLOWLIST.has(keyName.toLowerCase())) return value;
@@ -112,6 +121,10 @@ export function findKeyMaterial(jsonLine: string): string[] {
     return SECRET_VALUE_PATTERNS.some((p) => p.test(jsonLine)) ? ["<non-json line>"] : [];
   }
   const walk = (v: unknown, path: string, key: string): void => {
+    if (key && DROP_FIELDS.has(key.toLowerCase())) {
+      if (v !== REDACTED) hits.push(`${path}: 支払い署名（${key}）が伏せられていない`);
+      return;
+    }
     if (typeof v === "string") {
       if (looksSecretKeyName(key)) {
         if (v !== REDACTED) hits.push(`${path}: 鍵らしいフィールドが伏せられていない`);
