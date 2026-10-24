@@ -107,8 +107,10 @@ interface CallRecord {
     processPaymentId?: string;
     status?: string;
     paymentType?: string;
-    /** 証明の中身は形だけ残す（署名そのものは鍵ではないが、長さとキーで十分） */
-    paymentOutputShape?: unknown;
+    /** 応答の項目名（トップレベル）。値は残さない */
+    responseFields?: string[];
+    /** paymentOutput の直下の項目名（例: cryptoX402）。中身（支払い署名）は記録しない */
+    paymentOutputMembers?: string[];
     createdAt?: string;
   };
   error?: { name?: string; message?: string; httpStatus?: number; fault?: string };
@@ -220,7 +222,8 @@ class Ctx {
           processPaymentId: res.processPaymentId,
           status: res.status,
           paymentType: res.paymentType,
-          paymentOutputShape: shapeOf(res.paymentOutput),
+          responseFields: Object.keys(res).filter((k) => k !== "$metadata").sort(),
+          paymentOutputMembers: Object.keys(res.paymentOutput ?? {}).sort(),
           createdAt: res.createdAt?.toISOString(),
         },
         budgetBefore,
@@ -242,20 +245,10 @@ class Ctx {
   }
 }
 
-/** 値は捨ててキーと型・長さだけ残す。 */
-function shapeOf(v: unknown, depth = 0): unknown {
-  if (depth > 5) return "…";
-  if (Array.isArray(v)) return v.map((x) => shapeOf(x, depth + 1));
-  if (v && typeof v === "object") {
-    return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, shapeOf(x, depth + 1)]));
-  }
-  if (typeof v === "string") return v.length > 80 ? `<string len=${v.length}>` : v;
-  return v;
-}
-
 // ---------------- ケース ----------------
 
 const QUESTIONS: Record<string, string> = {
+  D0: "最初の 1 回: Base Sepolia exact $0.05 の 402 で ProcessPayment を 1 回。status・processPaymentId・応答の項目名、残高ゼロで署名できるか",
   D1: "同じ 402・同じ clientToken で 2 回: 2 回目が同じ processPaymentId を返すか、予算は 1 回分か",
   D2: "同じ 402・別の clientToken で 2 回: 2 回とも署名されるか、予算が 2 回分減るか",
   D4: "セッション上限 $0.20 に $0.05 を 5 回: 5 回目が拒否されるか、拒否時のエラー型",
@@ -267,6 +260,7 @@ const QUESTIONS: Record<string, string> = {
 };
 
 const SELLER: Record<string, string[]> = {
+  D0: ["/x402/nickel"],
   D1: ["/x402/weather"],
   D2: ["/x402/weather"],
   D4: ["/x402/nickel"],
@@ -289,6 +283,24 @@ async function runCase(ctx: Ctx, name: string, rec: CaseRecord): Promise<void> {
   rec.sessionMaxUsd = SESSION_MAX_USD;
   try {
     switch (name) {
+      case "D0": {
+        const f = await get402("/x402/nickel");
+        rec.calls.push(await ctx.pay("first", s, "CRYPTO_X402", x402Input(f)));
+        const c = rec.calls[0]!;
+        rec.findings = {
+          status: c.output?.status ?? null,
+          processPaymentId: c.output?.processPaymentId ?? null,
+          proof_generated: c.output?.status === "PROOF_GENERATED",
+          signed_with_zero_balance: c.ok ? "署名された（残高ゼロでも ProcessPayment は証明を返した）" : null,
+          responseFields: c.output?.responseFields ?? null,
+          paymentOutputMembers: c.output?.paymentOutputMembers ?? null,
+          error: c.error ?? null,
+          budget_before: c.budgetBefore,
+          budget_after: c.budgetAfter,
+          budget_api: "GetPaymentSession.paymentSession.availableLimits.availableSpendAmount",
+        };
+        break;
+      }
       case "D1": {
         const f = await get402("/x402/weather");
         const token = randomUUID();

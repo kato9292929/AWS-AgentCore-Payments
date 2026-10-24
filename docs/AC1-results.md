@@ -1,19 +1,20 @@
 # AC-1 結果: ProcessPayment の冪等性と、支払いを止める条件
 
-生成: 2026-10-23T14:50:22+09:00（`npx tsx scripts/report.ts`。値は artifacts/ac1/*.json からのみ取る）
+生成: 2026-10-25T02:16:16+09:00（`npx tsx scripts/report.ts`。値は artifacts/ac1/*.json からのみ取る）
 
 ```
-ケース  内容                                                確かめること                                       実測値
-------  --------------------------------------------------  -------------------------------------------------  ------------------------------------------------------------
-D1      同じ 402・同じ clientToken で 2 回                  2 回目が同じ processPaymentId か／予算は 1 回分か  未実施（資格情報／provision の出力が無い）
-D2      同じ 402・別の clientToken で 2 回                  2 回とも署名されるか／予算が 2 回分減るか          未実施（資格情報／provision の出力が無い）
-D3      支払い後に売り手が 30 秒遅延→タイムアウト→再送      プラグインは clientToken を使い回すか新しく作るか  プラグイン: 毎回新規（token 2種/2回・売り手の決済 2 回） / 直接 b1(未指定): 新規（2種/2回・決済 2 回） / b2(明示): 同一（1種/2回） / b0(ヘッダ再送): 決済 1 回 ［local-fake: AgentCore 側の冪等性・予算は未測定］
-D4      セッション上限 $0.20 に $0.05 を 5 回（v1, slug）   5 回目が拒否されるか／拒否時のエラー型             未実施（資格情報／provision の出力が無い）
-D4h     D4 をハーネス --guards=agentcore-only で            自前ガードを外しても AgentCore だけで止まるか      未実施（資格情報／provision の出力が無い）
-D5      セッション有効期限切れの後に呼ぶ                    拒否されるか／エラー型                             未実施（資格情報／provision の出力が無い）
-D6      MPP: 期限切れのチャレンジ                           ValidationException になり予算が減らないか         未実施（資格情報／provision の出力が無い）
-D7      MPP: feePayer=false で buyerPaysGasFees を渡さない  ValidationException になるか                       未実施（資格情報／provision の出力が無い）
-D8      testnet（eip155:84532, v2）で D4                    セッション上限が testnet でも効くか                未実施（資格情報／provision の出力が無い）
+ケース  内容                                                確かめること                                              実測値
+------  --------------------------------------------------  --------------------------------------------------------  ------------------------------------------------------------
+D0      最初の 1 回（Base Sepolia exact $0.05）             PROOF_GENERATED か／応答の項目名／残高ゼロで署名できるか  未実施（資格情報／provision の出力が無い）
+D1      同じ 402・同じ clientToken で 2 回                  2 回目が同じ processPaymentId か／予算は 1 回分か         未実施（資格情報／provision の出力が無い）
+D2      同じ 402・別の clientToken で 2 回                  2 回とも署名されるか／予算が 2 回分減るか                 未実施（資格情報／provision の出力が無い）
+D3      支払い後に売り手が 30 秒遅延→タイムアウト→再送      プラグインは clientToken を使い回すか新しく作るか         プラグイン: 毎回新規（token 2種/2回・売り手の決済 2 回） / 直接 b1(未指定): 新規（2種/2回・決済 2 回） / b2(明示): 同一（1種/2回） / b0(ヘッダ再送): 決済 1 回 ［local-fake: AgentCore 側の冪等性・予算は未測定］
+D4      セッション上限 $0.20 に $0.05 を 5 回（v1, slug）   5 回目が拒否されるか／拒否時のエラー型                    未実施（資格情報／provision の出力が無い）
+D4h     D4 をハーネス --guards=agentcore-only で            自前ガードを外しても AgentCore だけで止まるか             未実施（資格情報／provision の出力が無い）
+D5      セッション有効期限切れの後に呼ぶ                    拒否されるか／エラー型                                    未実施（資格情報／provision の出力が無い）
+D6      MPP: 期限切れのチャレンジ                           ValidationException になり予算が減らないか                未実施（資格情報／provision の出力が無い）
+D7      MPP: feePayer=false で buyerPaysGasFees を渡さない  ValidationException になるか                              未実施（資格情報／provision の出力が無い）
+D8      testnet（eip155:84532, v2）で D4                    セッション上限が testnet でも効くか                       未実施（資格情報／provision の出力が無い）
 ```
 
 ## 読み方

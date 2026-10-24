@@ -1,0 +1,41 @@
+{
+  "case": "D0",
+  "question": "最初の 1 回: Base Sepolia exact $0.05 の 402 で ProcessPayment を 1 回。status・processPaymentId・応答の項目名、残高ゼロで署名できるか",
+  "executed": false,
+  "startedAt": "2026-10-24T17:16:16.312Z",
+  "region": "us-east-1",
+  "seller": [
+    "http://127.0.0.1:8402/x402/nickel"
+  ],
+  "calls": [],
+  "findings": {},
+  "reason": "資格情報／provision の出力が無い: AGENTCORE_PAYMENT_MANAGER_ARN, AGENTCORE_PAYMENT_INSTRUMENT_ID, PAYMENT_USER_EMAIL",
+  "plannedInputs": [
+    {
+      "seller": "/x402/nickel",
+      "http_status": 402,
+      "paymentType": "CRYPTO_X402",
+      "paymentInput": {
+        "cryptoX402": {
+          "version": "1",
+          "payload": {
+            "scheme": "exact",
+            "network": "base-sepolia",
+            "maxAmountRequired": "50000",
+            "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+            "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+            "resource": "http://127.0.0.1:8402/x402/nickel",
+            "description": "Testnet $0.05 sample (x402 v1 exact, base-sepolia slug)",
+            "mimeType": "application/json",
+            "outputSchema": null,
+            "maxTimeoutSeconds": 60,
+            "extra": {
+              "name": "USDC",
+              "version": "2"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

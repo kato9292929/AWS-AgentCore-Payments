@@ -34,6 +34,7 @@ function notRun(rec: J | undefined, fallback: string): string {
 
 // ---------------------------------------------------------------- AC-1
 const AC1_ROWS: Array<[string, string, string]> = [
+  ["D0", "最初の 1 回（Base Sepolia exact $0.05）", "PROOF_GENERATED か／応答の項目名／残高ゼロで署名できるか"],
   ["D1", "同じ 402・同じ clientToken で 2 回", "2 回目が同じ processPaymentId か／予算は 1 回分か"],
   ["D2", "同じ 402・別の clientToken で 2 回", "2 回とも署名されるか／予算が 2 回分減るか"],
   ["D3", "支払い後に売り手が 30 秒遅延→タイムアウト→再送", "プラグインは clientToken を使い回すか新しく作るか"],
@@ -51,6 +52,10 @@ function ac1Measured(c: string): string {
   if (!r?.["executed"]) return notRun(r, "資格情報なし");
   const f = r["findings"] ?? {};
   switch (c) {
+    case "D0":
+      return f.proof_generated
+        ? `status=${f.status} / 項目 ${JSON.stringify(f.responseFields)} / paymentOutput 直下 ${JSON.stringify(f.paymentOutputMembers)}`
+        : `${f.error ? `${f.error.name}(${f.error.httpStatus}): ${String(f.error.message).slice(0, 80)}` : `status=${f.status}`}`;
     case "D1":
       return `同じID=${f.same_processPaymentId} / 予算減 1回目 ${f.budget_delta_1st} 2回目 ${f.budget_delta_2nd}${f.second_call_error ? ` / 2回目エラー ${f.second_call_error.name}` : ""}`;
     case "D2":
