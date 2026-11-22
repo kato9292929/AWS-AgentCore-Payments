@@ -1,17 +1,25 @@
 {
-  "checkedAt": "2026-10-24T17:15:50Z",
-  "region": "us-east-1",
+  "checkedAt": "2026-11-22T12:25:39Z",
+  "region": "ap-southeast-2",
   "steps": [
     {
       "step": "sts:GetCallerIdentity",
-      "ok": false,
-      "error": {
-        "type": "InvalidClientTokenId",
-        "httpStatus": 403,
-        "message": "The security token included in the request is invalid.",
-        "operation": "GetCallerIdentity"
-      }
+      "ok": true,
+      "principalType": "user"
+    },
+    {
+      "step": "bedrock-agentcore-control:GetPaymentManager",
+      "ok": true,
+      "paymentManagerStatus": "READY",
+      "authorizerType": "AWS_IAM"
+    },
+    {
+      "step": "bedrock-agentcore-control:GetPaymentConnector",
+      "ok": true,
+      "paymentConnectorStatus": "READY",
+      "type": "StripePrivy",
+      "provisionMode": "MANUAL"
     }
   ],
-  "ok": false
+  "ok": true
 }
