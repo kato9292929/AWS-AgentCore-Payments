@@ -23,5 +23,10 @@
       "updatedAt": "2026-11-22 12:36:03.876290+00:00"
     },
     "expiryTimeInMinutes": 15
+  },
+  "instrument_error_retry": {
+    "code": "AccessDeniedException",
+    "message": "Privy credentials are invalid. Please verify the credential configuration.",
+    "at": "2026-11-22T19:44:31Z"
   }
 }
