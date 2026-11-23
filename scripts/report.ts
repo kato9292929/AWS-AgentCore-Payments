@@ -170,6 +170,7 @@ ${d4h?.["executed"] ? "```\n" + JSON.stringify(d4h["findings"], null, 2) + "\n``
 | 応答の形 | LocalPlane は \`processPayment\` で包んで返していた | トップレベルに createdAt / paymentInstrumentId / paymentManagerArn / paymentOutput / paymentSessionId / paymentType / processPaymentId / status / updatedAt | LocalPlane を実物と同じ形にした（\`python3 scripts/py/check_local_plane.py\` で照合） |
 | 残予算の取得 | LocalPlane は残予算を返さなかった | GetPaymentSession の availableLimits.availableSpendAmount（値は "0.2" のように末尾の 0 なし） | LocalPlane が同じ形で返すようにした |
 | 残高ゼロでの署名 | docs: 「入金と許可の両方が済むまで支払い処理は失敗する」 | **入金なしでも PROOF_GENERATED**（許可は済み） | 記録のみ（売り手側の settle は残高不足で失敗するはず。未確認） |
+| セッション期限切れ | Python SDK は文言に "expired" があれば PaymentSessionExpired に分類する作り。docs に型の明記なし | **ValidationException（HTTP 400）"Payment session not found: …"**。GetPaymentSession は ResourceNotFoundException。期限切れは「存在しない」扱い（D5） | LocalPlane が同じ動きをするようにした |
 | status の値 | SDK 3 系は PROOF_GENERATED のみ／quick start は PENDING/SUCCESS/FAILED | **PROOF_GENERATED** | paymentStatus.ts の分類のままで合う |
 | サービスロールの権限 | docs: connector を追加すると per-connector 権限が自動で付く | 登録情報の差し替え（Privy）・API での connector 追加（Coinbase）では**付かなかった**。本人が IAM で追加して解消 | provision.json と docs/T4-T5-blocked.md に記録 |
 | CloudWatch のメトリクス名 | docs: PaymentRequestCount / PaymentSuccessCount / PaymentFailureCount / PaymentLatency ほか | 実際に出たのは ActiveSessions / OperationFailure / OperationLatency / OperationSuccess / PaymentTokenFetchFailures / PaymentTokenFetchSuccess / SpendAmount / Throttles / TransactionCount / UserErrors | cloudwatch.json に記録 |

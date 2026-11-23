@@ -1,41 +1,72 @@
 {
   "case": "D5",
   "question": "セッションの有効期限切れの後に呼ぶ: 拒否されるか、エラー型",
-  "executed": false,
-  "startedAt": "2026-10-20T06:14:49.959Z",
-  "region": "us-east-1",
+  "executed": true,
+  "startedAt": "2026-11-23T14:47:00.542Z",
+  "region": "ap-southeast-2",
   "seller": [
     "http://127.0.0.1:8402/x402/weather"
   ],
-  "calls": [],
-  "findings": {},
-  "reason": "資格情報／provision の出力が無い: AGENTCORE_PAYMENT_MANAGER_ARN, AGENTCORE_PAYMENT_INSTRUMENT_ID, PAYMENT_USER_EMAIL",
-  "plannedInputs": [
+  "calls": [
     {
-      "seller": "/x402/weather",
-      "http_status": 402,
-      "paymentType": "CRYPTO_X402",
-      "paymentInput": {
-        "cryptoX402": {
-          "version": "1",
-          "payload": {
-            "scheme": "exact",
-            "network": "base-sepolia",
-            "maxAmountRequired": "10000",
-            "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-            "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
-            "resource": "http://127.0.0.1:8402/x402/weather",
-            "description": "Testnet weather sample (x402 exact)",
-            "mimeType": "application/json",
-            "outputSchema": null,
-            "maxTimeoutSeconds": 60,
-            "extra": {
-              "name": "USDC",
-              "version": "2"
+      "label": "after-expiry",
+      "clientToken": "07fd7b8f-25c1-404d-b9da-e21c5bff3fbc",
+      "input": {
+        "paymentManagerArn": "arn:aws:bedrock-agentcore:ap-southeast-2:337774319058:payment-manager/paymentmanagermum7-r36kpioyxh",
+        "paymentSessionId": "payment-session-5xOgRRefZq7bEEr",
+        "paymentInstrumentId": "payment-instrument-mLCJcoWtp3yFJDP",
+        "userId": "harness-user-1",
+        "agentName": "ac1-runner",
+        "paymentType": "CRYPTO_X402",
+        "paymentInput": {
+          "cryptoX402": {
+            "version": "1",
+            "payload": {
+              "scheme": "exact",
+              "network": "base-sepolia",
+              "maxAmountRequired": "10000",
+              "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+              "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+              "resource": "http://127.0.0.1:8402/x402/weather",
+              "description": "Testnet weather sample (x402 exact)",
+              "mimeType": "application/json",
+              "outputSchema": null,
+              "maxTimeoutSeconds": 60,
+              "extra": {
+                "name": "USDC",
+                "version": "2"
+              }
             }
           }
-        }
-      }
+        },
+        "clientToken": "07fd7b8f-25c1-404d-b9da-e21c5bff3fbc"
+      },
+      "ok": false,
+      "latencyMs": 291,
+      "error": {
+        "name": "ValidationException",
+        "message": "Payment session not found: payment-session-5xOgRRefZq7bEEr",
+        "httpStatus": 400,
+        "fault": "client"
+      },
+      "budgetBefore": "error:ResourceNotFoundException",
+      "budgetAfter": "error:ResourceNotFoundException"
     }
-  ]
+  ],
+  "findings": {
+    "rejected": true,
+    "error": {
+      "name": "ValidationException",
+      "message": "Payment session not found: payment-session-5xOgRRefZq7bEEr",
+      "httpStatus": 400,
+      "fault": "client"
+    },
+    "budget_after": "error:ResourceNotFoundException"
+  },
+  "paymentSessionId": "payment-session-5xOgRRefZq7bEEr",
+  "sessionMaxUsd": "0.20",
+  "notes": [
+    "CreatePaymentSession(expiryTimeInMinutes=15) の後 960000ms 待ってから ProcessPayment"
+  ],
+  "finishedAt": "2026-11-23T15:03:02.435Z"
 }

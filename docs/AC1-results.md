@@ -1,6 +1,6 @@
 # AC-1 結果: ProcessPayment の冪等性と、支払いを止める条件
 
-生成: 2026-11-23T23:49:39+09:00（`npx tsx scripts/report.ts`。値は artifacts/ac1/*.json からのみ取る）
+生成: 2026-11-24T00:03:38+09:00（`npx tsx scripts/report.ts`。値は artifacts/ac1/*.json からのみ取る）
 
 ```
 ケース  内容                                                確かめること                                              区分                  値
@@ -11,7 +11,7 @@ D2      同じ 402・別の clientToken で 2 回                  2 回とも�
 D3      支払い後に売り手が 30 秒遅延→タイムアウト→再送      プラグインは clientToken を使い回すか新しく作るか         オフライン想定のまま  プラグイン: 毎回新規（token 2種/2回・売り手の決済 2 回） / 直接 b1(未指定): 新規（2種/2回・決済 2 回） / b2(明示): 同一（1種/2回） / b0(ヘッダ再送): 決済 1 回 ［local-fake: AgentCore 側の冪等性・予算は未測定］
 D4      セッション上限 $0.20 に $0.05 を 5 回（v1, slug）   5 回目が拒否されるか／拒否時のエラー型                    実測                  最初の拒否=5回目 / ValidationException(400): Insufficient budget for session payment-session-CZn7e6VLDGPx
 D4h     D4 をハーネス --guards=agentcore-only で            自前ガードを外しても AgentCore だけで止まるか             未実施                未実施（今回の実行範囲外。資格情報がそろう前の記録のまま）
-D5      セッション有効期限切れの後に呼ぶ                    拒否されるか／エラー型                                    未実施                未実施（資格情報／provision の出力が無い）
+D5      セッション有効期限切れの後に呼ぶ                    拒否されるか／エラー型                                    実測                  拒否=true / ValidationException: Payment session not found: payment-session-5xOgRRefZq7bEEr
 D6      MPP: 期限切れのチャレンジ                           ValidationException になり予算が減らないか                未実施                未実施（今回の実行範囲外。資格情報がそろう前の記録のまま）
 D7      MPP: feePayer=false で buyerPaysGasFees を渡さない  ValidationException になるか                              未実施                未実施（今回の実行範囲外。資格情報がそろう前の記録のまま）
 D8      testnet（eip155:84532, v2）で D4                    セッション上限が testnet でも効くか                       実測                  最初の拒否=5回目 / ValidationException(400): Insufficient budget for session payment-session-HBfbIJusOHps
@@ -67,6 +67,7 @@ D8      testnet（eip155:84532, v2）で D4                    セッション�
 | 応答の形 | LocalPlane は `processPayment` で包んで返していた | トップレベルに createdAt / paymentInstrumentId / paymentManagerArn / paymentOutput / paymentSessionId / paymentType / processPaymentId / status / updatedAt | LocalPlane を実物と同じ形にした（`python3 scripts/py/check_local_plane.py` で照合） |
 | 残予算の取得 | LocalPlane は残予算を返さなかった | GetPaymentSession の availableLimits.availableSpendAmount（値は "0.2" のように末尾の 0 なし） | LocalPlane が同じ形で返すようにした |
 | 残高ゼロでの署名 | docs: 「入金と許可の両方が済むまで支払い処理は失敗する」 | **入金なしでも PROOF_GENERATED**（許可は済み） | 記録のみ（売り手側の settle は残高不足で失敗するはず。未確認） |
+| セッション期限切れ | Python SDK は文言に "expired" があれば PaymentSessionExpired に分類する作り。docs に型の明記なし | **ValidationException（HTTP 400）"Payment session not found: …"**。GetPaymentSession は ResourceNotFoundException。期限切れは「存在しない」扱い（D5） | LocalPlane が同じ動きをするようにした |
 | status の値 | SDK 3 系は PROOF_GENERATED のみ／quick start は PENDING/SUCCESS/FAILED | **PROOF_GENERATED** | paymentStatus.ts の分類のままで合う |
 | サービスロールの権限 | docs: connector を追加すると per-connector 権限が自動で付く | 登録情報の差し替え（Privy）・API での connector 追加（Coinbase）では**付かなかった**。本人が IAM で追加して解消 | provision.json と docs/T4-T5-blocked.md に記録 |
 | CloudWatch のメトリクス名 | docs: PaymentRequestCount / PaymentSuccessCount / PaymentFailureCount / PaymentLatency ほか | 実際に出たのは ActiveSessions / OperationFailure / OperationLatency / OperationSuccess / PaymentTokenFetchFailures / PaymentTokenFetchSuccess / SpendAmount / Throttles / TransactionCount / UserErrors | cloudwatch.json に記録 |

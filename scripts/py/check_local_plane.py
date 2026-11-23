@@ -32,6 +32,30 @@ def avail(p: LocalPlane, sid: str) -> str:
     return p.get_payment_session(paymentSessionId=sid)["paymentSession"]["availableLimits"]["availableSpendAmount"]["value"]
 
 
+def expiry_checks() -> dict:
+    """D5: 期限切れのセッションは存在しない扱い。時計を進める代わりに期限を過去にする。"""
+    p = LocalPlane()
+    sid = p.create_payment_session(limits={"maxSpendAmount": {"value": "0.20", "currency": "USD"}},
+                                   expiryTimeInMinutes=15)["paymentSession"]["paymentSessionId"]
+    p._expires[sid] = 0  # 期限切れにする
+    pay_err = get_err = None
+    try:
+        pay(p, sid, "e" * 36)
+    except ClientError as e:
+        pay_err = e
+    try:
+        p.get_payment_session(paymentSessionId=sid)
+    except ClientError as e:
+        get_err = e
+    return {
+        "D5: 期限切れ後の ProcessPayment は ValidationException \"Payment session not found\"":
+            pay_err is not None and pay_err.response["Error"]["Code"] == "ValidationException"
+            and pay_err.response["Error"]["Message"].startswith("Payment session not found: "),
+        "D5: 期限切れ後の GetPaymentSession は ResourceNotFoundException":
+            get_err is not None and get_err.response["Error"]["Code"] == "ResourceNotFoundException",
+    }
+
+
 def main() -> int:
     measured_fields = json.loads((ROOT / "artifacts/ac1/D0.json").read_text())["findings"]["responseFields"]
     p = LocalPlane()
@@ -57,6 +81,7 @@ def main() -> int:
         and "Transaction amount: 0.050000 USD" in err.response["Error"]["Message"],
         "D4: 予算の推移が実測と同じ（0.15, 0.1, 0.05, 0, 0）": trail == ["0.15", "0.1", "0.05", "0", "0"],
         "D0: 応答の項目名が実測と同じ": sorted(a.keys()) == measured_fields,
+        **expiry_checks(),
     }
     ok = all(checks.values())
     print(json.dumps({"check": "local-plane-matches-measured", "result": "ok" if ok else "NG", "checks": checks,

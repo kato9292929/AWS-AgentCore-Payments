@@ -12,6 +12,8 @@
                  - 同じ clientToken なら同じ processPaymentId を返し、予算は 1 回分しか減らない
                  - 予算が足りなければ ValidationException（HTTP 400）
                    "Insufficient budget for session <id>. Pending amount: 0 USD, Transaction amount: <x> USD"
+                 - 有効期限が切れたセッションは「存在しない」扱い（D5）: ProcessPayment は ValidationException（HTTP 400）
+                   "Payment session not found: <id>"、GetPaymentSession は ResourceNotFoundException
                これは実測の写しであって実測そのものではない。結果表には使わない（使うのは AgentCore の応答だけ）。
 
   spy(manager) … 本物の PaymentManager の boto3 クライアントに覗き窓を付ける。
@@ -62,6 +64,8 @@ class LocalPlane:
         self._budget: Dict[str, Any] = {}
         # clientToken -> 最初の応答（実測: 同じ token なら同じ応答、予算は 1 回分）
         self._by_token: Dict[str, Dict[str, Any]] = {}
+        # sessionId -> 期限（epoch 秒）
+        self._expires: Dict[str, float] = {}
         # boto3 クライアントと同じ属性を最低限そろえる（SDK が events.register を呼ぶ）
         self.meta = _Meta()
 
@@ -83,6 +87,7 @@ class LocalPlane:
         sid = f"payment-session-local-{uuid.uuid4().hex[:15]}"
         limit = ((params.get("limits") or {}).get("maxSpendAmount") or {}).get("value")
         self._budget[sid] = Decimal(limit) if limit is not None else None
+        self._expires[sid] = time.time() + 60 * int(params.get("expiryTimeInMinutes") or 15)
         return {"paymentSession": {"paymentSessionId": sid, "limits": params.get("limits"),
                                    "expiryTimeInMinutes": params.get("expiryTimeInMinutes"),
                                    "availableLimits": self._available(sid)}}
@@ -107,6 +112,10 @@ class LocalPlane:
                                       process_payment_id=self._by_token[token]["processPaymentId"],
                                       status="PROOF_GENERATED", extra={"idempotent_replay": True}))
             return self._by_token[token]
+        sid0 = params.get("paymentSessionId", "")
+        if sid0 in self._expires and time.time() > self._expires[sid0]:
+            raise ClientError({"Error": {"Code": "ValidationException", "Message": f"Payment session not found: {sid0}"},
+                               "ResponseMetadata": {"HTTPStatusCode": 400}}, "ProcessPayment")
         ptype = params["paymentType"]
         pin = params["paymentInput"]
         log = CallLog(
@@ -156,7 +165,12 @@ class LocalPlane:
         return res
 
     def get_payment_session(self, **params: Any) -> Dict[str, Any]:
+        from botocore.exceptions import ClientError
+
         sid = params.get("paymentSessionId", "")
+        if sid in self._expires and time.time() > self._expires[sid]:
+            raise ClientError({"Error": {"Code": "ResourceNotFoundException", "Message": f"Payment session not found: {sid}"},
+                               "ResponseMetadata": {"HTTPStatusCode": 404}}, "GetPaymentSession")
         return {"paymentSession": {"paymentSessionId": sid, "availableLimits": self._available(sid)}}
 
     # --- 署名 ---

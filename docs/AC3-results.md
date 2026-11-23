@@ -1,6 +1,6 @@
 # AC-3 結果: upto スキームでの上限の扱い
 
-生成: 2026-11-23T23:49:39+09:00（`npx tsx scripts/report.ts`。値は artifacts/ac3/ からのみ取る）
+生成: 2026-11-24T00:03:38+09:00（`npx tsx scripts/report.ts`。値は artifacts/ac3/ からのみ取る）
 
 ```
 区分   項目                                                値                                                            状態
