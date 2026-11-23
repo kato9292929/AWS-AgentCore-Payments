@@ -2,12 +2,17 @@
 
 2 種類ある。
 
-  LocalPlane … AgentCore を呼ばずに、ProcessPayment の「形」だけを手元で再現する。
+  LocalPlane … AgentCore を呼ばずに、ProcessPayment を手元で再現する。
                EIP-3009（x402 exact）を eth_account で実際に署名するので、模擬売り手の
-               署名検証は通る。予算・冪等性・エラーの判定は**一切再現しない**
-               （それは AgentCore 本体の挙動で、ここで作ると実測の偽物になる）。
-               用途はクライアント側（SDK / Strands プラグイン）が clientToken をどう扱うか、
-               HTTP の往復がどう流れるかを測ることだけ。採取ログには plane="local-fake" が入る。
+               署名検証は通る。採取ログには plane="local-fake" が入る。
+               予算・冪等性・エラーは、2026-11-23 の実測（ap-southeast-2、artifacts/ac1/D0〜D8.json）に合わせてある:
+                 - 応答はトップレベルに createdAt / paymentInstrumentId / paymentManagerArn / paymentOutput /
+                   paymentSessionId / paymentType / processPaymentId / status / updatedAt
+                 - 予算は証明を作った時点で減る（売り手への再送や settle を待たない）
+                 - 同じ clientToken なら同じ processPaymentId を返し、予算は 1 回分しか減らない
+                 - 予算が足りなければ ValidationException（HTTP 400）
+                   "Insufficient budget for session <id>. Pending amount: 0 USD, Transaction amount: <x> USD"
+               これは実測の写しであって実測そのものではない。結果表には使わない（使うのは AgentCore の応答だけ）。
 
   spy(manager) … 本物の PaymentManager の boto3 クライアントに覗き窓を付ける。
                ProcessPayment に渡った clientToken・入力・出力・例外をそのまま記録する。
@@ -53,6 +58,10 @@ class LocalPlane:
         self._account = Account.create()  # 鍵はこのオブジェクトの中だけ
         self.address = self._account.address
         self.calls: List[CallLog] = []
+        # sessionId -> 残予算（Decimal）。作っていないセッション ID は上限なしとして扱う（D3 など）
+        self._budget: Dict[str, Any] = {}
+        # clientToken -> 最初の応答（実測: 同じ token なら同じ応答、予算は 1 回分）
+        self._by_token: Dict[str, Dict[str, Any]] = {}
         # boto3 クライアントと同じ属性を最低限そろえる（SDK が events.register を呼ぶ）
         self.meta = _Meta()
 
@@ -68,7 +77,36 @@ class LocalPlane:
             }
         }
 
+    def create_payment_session(self, **params: Any) -> Dict[str, Any]:
+        from decimal import Decimal
+
+        sid = f"payment-session-local-{uuid.uuid4().hex[:15]}"
+        limit = ((params.get("limits") or {}).get("maxSpendAmount") or {}).get("value")
+        self._budget[sid] = Decimal(limit) if limit is not None else None
+        return {"paymentSession": {"paymentSessionId": sid, "limits": params.get("limits"),
+                                   "expiryTimeInMinutes": params.get("expiryTimeInMinutes"),
+                                   "availableLimits": self._available(sid)}}
+
+    def _available(self, sid: str) -> Any:
+        b = self._budget.get(sid)
+        if b is None:
+            return None
+        return {"availableSpendAmount": {"value": format(b.normalize(), "f"), "currency": "USD"}}
+
     def process_payment(self, **params: Any) -> Dict[str, Any]:
+        from decimal import Decimal
+
+        from botocore.exceptions import ClientError
+
+        token = params.get("clientToken", "")
+        if token and token in self._by_token:
+            # 実測 D1: 同じ clientToken → 同じ processPaymentId、予算は減らない
+            self.calls.append(CallLog(plane="local-fake", client_token=token, payment_type=params["paymentType"],
+                                      payment_session_id=params.get("paymentSessionId", ""),
+                                      payload_summary=_summarize(params["paymentInput"]), at=time.time(),
+                                      process_payment_id=self._by_token[token]["processPaymentId"],
+                                      status="PROOF_GENERATED", extra={"idempotent_replay": True}))
+            return self._by_token[token]
         ptype = params["paymentType"]
         pin = params["paymentInput"]
         log = CallLog(
@@ -85,21 +123,41 @@ class LocalPlane:
             raise RuntimeError(log.error)
         accept = pin["cryptoX402"]["payload"]
         version = pin["cryptoX402"]["version"]
+        sid = params.get("paymentSessionId", "")
+        amount = Decimal(int(accept.get("amount") or accept.get("maxAmountRequired"))) / Decimal(10**6)
+        if self._budget.get(sid) is not None and amount > self._budget[sid]:
+            log.error = "ValidationException: Insufficient budget"
+            raise ClientError(
+                {"Error": {"Code": "ValidationException",
+                           "Message": f"Insufficient budget for session {sid}. Pending amount: 0 USD, "
+                                      f"Transaction amount: {amount:.6f} USD"},
+                 "ResponseMetadata": {"HTTPStatusCode": 400}},
+                "ProcessPayment",
+            )
         payload = self._sign_exact(accept)
+        if self._budget.get(sid) is not None:
+            self._budget[sid] -= amount  # 実測 D4/D8: 証明を作った時点で減る
+        now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         log.process_payment_id = f"local-{uuid.uuid4()}"
         log.status = "PROOF_GENERATED"
-        return {
-            "processPayment": {
-                "processPaymentId": log.process_payment_id,
-                "status": "PROOF_GENERATED",
-                "paymentType": "CRYPTO_X402",
-                "paymentOutput": {"cryptoX402": {"version": version, "payload": payload}},
-            }
+        res = {
+            "createdAt": now,
+            "paymentInstrumentId": params.get("paymentInstrumentId"),
+            "paymentManagerArn": params.get("paymentManagerArn"),
+            "paymentOutput": {"cryptoX402": {"version": version, "payload": payload}},
+            "paymentSessionId": sid,
+            "paymentType": "CRYPTO_X402",
+            "processPaymentId": log.process_payment_id,
+            "status": "PROOF_GENERATED",
+            "updatedAt": now,
         }
+        if token:
+            self._by_token[token] = res
+        return res
 
-    def get_payment_session(self, **_: Any) -> Dict[str, Any]:
-        # 予算は再現しない。呼ばれたら「分からない」を返す。
-        return {"paymentSession": {"availableLimits": None, "note": "local-fake: budget not emulated"}}
+    def get_payment_session(self, **params: Any) -> Dict[str, Any]:
+        sid = params.get("paymentSessionId", "")
+        return {"paymentSession": {"paymentSessionId": sid, "availableLimits": self._available(sid)}}
 
     # --- 署名 ---
     def _sign_exact(self, accept: Dict[str, Any]) -> Dict[str, Any]:

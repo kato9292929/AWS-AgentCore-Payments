@@ -1,0 +1,71 @@
+{
+  "collectedAt": "2026-11-23T14:47:38Z",
+  "paymentManagerId": "paymentmanagermum7-r36kpioyxh",
+  "metrics": {
+    "AWS/Bedrock-AgentCore": {
+      "ActiveSessions": [
+        "AgentName",
+        "Operation",
+        "PaymentManagerId"
+      ],
+      "OperationFailure": [
+        "AgentName",
+        "Operation",
+        "PaymentManagerId"
+      ],
+      "OperationLatency": [
+        "AgentName",
+        "Operation",
+        "PaymentConnectorId",
+        "PaymentManagerId"
+      ],
+      "OperationSuccess": [
+        "AgentName",
+        "Operation",
+        "PaymentConnectorId",
+        "PaymentManagerId"
+      ],
+      "PaymentTokenFetchFailures": [
+        "ExceptionType",
+        "ProviderName",
+        "TokenVault",
+        "WorkloadIdentity",
+        "WorkloadIdentityDirectory"
+      ],
+      "PaymentTokenFetchSuccess": [
+        "ProviderName",
+        "TokenVault",
+        "WorkloadIdentity",
+        "WorkloadIdentityDirectory"
+      ],
+      "SpendAmount": [
+        "AgentName",
+        "Currency",
+        "Operation",
+        "PaymentConnectorId",
+        "PaymentManagerId"
+      ],
+      "Throttles": [
+        "AgentName",
+        "Operation",
+        "PaymentConnectorId",
+        "PaymentManagerId"
+      ],
+      "TransactionCount": [
+        "AgentName",
+        "ConnectorType",
+        "Operation",
+        "PaymentConnectorId",
+        "PaymentManagerId"
+      ],
+      "UserErrors": [
+        "AgentName",
+        "Operation",
+        "PaymentManagerId"
+      ]
+    }
+  },
+  "log_groups_with_events": [],
+  "log_events_scanned": 0,
+  "log_field_names": {}
+}

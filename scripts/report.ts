@@ -91,9 +91,23 @@ function d3Summary(d: J | undefined): string {
   );
 }
 
+/** 各セルが「実測」「オフライン想定のまま」「未実施」のどれかを明示する */
+function ac1Kind(c: string): string {
+  if (c === "D3") return A("ac1/D3.json")?.["plane"] === "agentcore" ? "実測" : "オフライン想定のまま";
+  return A(`ac1/${c}.json`)?.["executed"] ? "実測" : "未実施";
+}
+
+const AC1_OUT_OF_SCOPE = new Set(["D4h", "D6", "D7"]);
+
 function ac1(): { md: string; tableText: string } {
-  const rows = AC1_ROWS.map(([c, what, q]) => [c, what, q, ac1Measured(c)]);
-  const t = table(["ケース", "内容", "確かめること", "実測値"], rows);
+  const rows = AC1_ROWS.map(([c, what, q]) => [
+    c,
+    what,
+    q,
+    ac1Kind(c),
+    ac1Kind(c) === "未実施" && AC1_OUT_OF_SCOPE.has(c) ? "未実施（今回の実行範囲外。資格情報がそろう前の記録のまま）" : ac1Measured(c),
+  ]);
+  const t = table(["ケース", "内容", "確かめること", "区分", "値"], rows);
   const d3 = A("ac1/D3.json");
   const d4h = A("ac1/D4h.json");
   const md = `# AC-1 結果: ProcessPayment の冪等性と、支払いを止める条件
@@ -137,6 +151,28 @@ ${(d3["results"] as J[])
 ## D4h（ハーネス経由・agentcore-only）
 
 ${d4h?.["executed"] ? "```\n" + JSON.stringify(d4h["findings"], null, 2) + "\n```" : notRun(d4h, "資格情報なし")}
+
+## 実行環境（実測）
+
+- 2026-11-23、リージョン ap-southeast-2（日本の住所で作られたアカウントはシドニーに固定される。AWS アカウントの docs: project-regions）
+- Payment Manager \`paymentmanagermum7-r36kpioyxh\`、Coinbase CDP connector \`coinbase1-wubbi6q4wk\`（Quick Create を API で作成）、
+  instrument は EMBEDDED_CRYPTO_WALLET / ETHEREUM、WalletHub で署名許可済み、**入金なし（USDC 残高 0）**
+- 資格情報の確認は artifacts/ac1/preflight.json、ウォレット作成までの経過は artifacts/ac1/provision.json
+- CloudWatch のメトリクス名は artifacts/ac1/cloudwatch.json（vended logs は配信先が未設定のため 0 件）
+
+## 偽クライアント・オフライン想定と実測で違った点
+
+| 項目 | オフラインの想定（偽クライアント・docs） | 実測 | 対応 |
+|---|---|---|---|
+| 予算が減る時点 | 想定なし（LocalPlane は予算を再現していなかった）。ハーネスの自前ガードは売り手の 200 の後に計上 | **ProcessPayment で証明を作った時点**で減る。売り手への再送・settle を待たない（D4: 0.15→0.1→0.05→0） | LocalPlane を実測に合わせた。ハーネスの計上時点との差は記録のみ |
+| 予算超過のエラー型 | docs に明記なし（ServiceQuotaExceeded 402 か、と推測していた） | **ValidationException（HTTP 400）** "Insufficient budget for session … Pending amount: 0 USD, Transaction amount: 0.050000 USD" | LocalPlane が同じ型・同じ文言で投げるようにした |
+| 同じ clientToken の再送 | LocalPlane は毎回署名し直していた（D3 b2 の決済 2 回はそのため） | **同じ processPaymentId、予算は 1 回分**（D1） | LocalPlane に clientToken ごとの応答キャッシュを入れた |
+| 応答の形 | LocalPlane は \`processPayment\` で包んで返していた | トップレベルに createdAt / paymentInstrumentId / paymentManagerArn / paymentOutput / paymentSessionId / paymentType / processPaymentId / status / updatedAt | LocalPlane を実物と同じ形にした（\`python3 scripts/py/check_local_plane.py\` で照合） |
+| 残予算の取得 | LocalPlane は残予算を返さなかった | GetPaymentSession の availableLimits.availableSpendAmount（値は "0.2" のように末尾の 0 なし） | LocalPlane が同じ形で返すようにした |
+| 残高ゼロでの署名 | docs: 「入金と許可の両方が済むまで支払い処理は失敗する」 | **入金なしでも PROOF_GENERATED**（許可は済み） | 記録のみ（売り手側の settle は残高不足で失敗するはず。未確認） |
+| status の値 | SDK 3 系は PROOF_GENERATED のみ／quick start は PENDING/SUCCESS/FAILED | **PROOF_GENERATED** | paymentStatus.ts の分類のままで合う |
+| サービスロールの権限 | docs: connector を追加すると per-connector 権限が自動で付く | 登録情報の差し替え（Privy）・API での connector 追加（Coinbase）では**付かなかった**。本人が IAM で追加して解消 | provision.json と docs/T4-T5-blocked.md に記録 |
+| CloudWatch のメトリクス名 | docs: PaymentRequestCount / PaymentSuccessCount / PaymentFailureCount / PaymentLatency ほか | 実際に出たのは ActiveSessions / OperationFailure / OperationLatency / OperationSuccess / PaymentTokenFetchFailures / PaymentTokenFetchSuccess / SpendAmount / Throttles / TransactionCount / UserErrors | cloudwatch.json に記録 |
 
 ## live で埋めるときの手順
 

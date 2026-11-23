@@ -1,41 +1,141 @@
 {
   "case": "D2",
   "question": "同じ 402・別の clientToken で 2 回: 2 回とも署名されるか、予算が 2 回分減るか",
-  "executed": false,
-  "startedAt": "2026-10-20T06:12:44.863Z",
-  "region": "us-east-1",
+  "executed": true,
+  "startedAt": "2026-11-23T14:47:03.639Z",
+  "region": "ap-southeast-2",
   "seller": [
     "http://127.0.0.1:8402/x402/weather"
   ],
-  "calls": [],
-  "findings": {},
-  "reason": "資格情報／provision の出力が無い: AGENTCORE_PAYMENT_MANAGER_ARN, AGENTCORE_PAYMENT_INSTRUMENT_ID, PAYMENT_USER_EMAIL",
-  "plannedInputs": [
+  "calls": [
     {
-      "seller": "/x402/weather",
-      "http_status": 402,
-      "paymentType": "CRYPTO_X402",
-      "paymentInput": {
-        "cryptoX402": {
-          "version": "1",
-          "payload": {
-            "scheme": "exact",
-            "network": "base-sepolia",
-            "maxAmountRequired": "10000",
-            "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-            "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
-            "resource": "http://127.0.0.1:8402/x402/weather",
-            "description": "Testnet weather sample (x402 exact)",
-            "mimeType": "application/json",
-            "outputSchema": null,
-            "maxTimeoutSeconds": 60,
-            "extra": {
-              "name": "USDC",
-              "version": "2"
+      "label": "1st",
+      "clientToken": "e1853d2c-cc95-4f04-bea2-0935cc08d6a8",
+      "input": {
+        "paymentManagerArn": "arn:aws:bedrock-agentcore:ap-southeast-2:337774319058:payment-manager/paymentmanagermum7-r36kpioyxh",
+        "paymentSessionId": "payment-session-5SJ00toGDNECdsY",
+        "paymentInstrumentId": "payment-instrument-mLCJcoWtp3yFJDP",
+        "userId": "harness-user-1",
+        "agentName": "ac1-runner",
+        "paymentType": "CRYPTO_X402",
+        "paymentInput": {
+          "cryptoX402": {
+            "version": "1",
+            "payload": {
+              "scheme": "exact",
+              "network": "base-sepolia",
+              "maxAmountRequired": "10000",
+              "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+              "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+              "resource": "http://127.0.0.1:8402/x402/weather",
+              "description": "Testnet weather sample (x402 exact)",
+              "mimeType": "application/json",
+              "outputSchema": null,
+              "maxTimeoutSeconds": 60,
+              "extra": {
+                "name": "USDC",
+                "version": "2"
+              }
             }
           }
-        }
-      }
+        },
+        "clientToken": "e1853d2c-cc95-4f04-bea2-0935cc08d6a8"
+      },
+      "ok": true,
+      "latencyMs": 842,
+      "output": {
+        "processPaymentId": "3147b201-b67b-41f8-8ac5-79a0c1e5d487",
+        "status": "PROOF_GENERATED",
+        "paymentType": "CRYPTO_X402",
+        "responseFields": [
+          "createdAt",
+          "paymentInstrumentId",
+          "paymentManagerArn",
+          "paymentOutput",
+          "paymentSessionId",
+          "paymentType",
+          "processPaymentId",
+          "status",
+          "updatedAt"
+        ],
+        "paymentOutputMembers": [
+          "cryptoX402"
+        ],
+        "createdAt": "2026-11-23T14:47:04.985Z"
+      },
+      "budgetBefore": "0.2 USD",
+      "budgetAfter": "0.19 USD"
+    },
+    {
+      "label": "2nd-new-token",
+      "clientToken": "b51cc65c-99a7-451c-974b-b9df53a88cea",
+      "input": {
+        "paymentManagerArn": "arn:aws:bedrock-agentcore:ap-southeast-2:337774319058:payment-manager/paymentmanagermum7-r36kpioyxh",
+        "paymentSessionId": "payment-session-5SJ00toGDNECdsY",
+        "paymentInstrumentId": "payment-instrument-mLCJcoWtp3yFJDP",
+        "userId": "harness-user-1",
+        "agentName": "ac1-runner",
+        "paymentType": "CRYPTO_X402",
+        "paymentInput": {
+          "cryptoX402": {
+            "version": "1",
+            "payload": {
+              "scheme": "exact",
+              "network": "base-sepolia",
+              "maxAmountRequired": "10000",
+              "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+              "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+              "resource": "http://127.0.0.1:8402/x402/weather",
+              "description": "Testnet weather sample (x402 exact)",
+              "mimeType": "application/json",
+              "outputSchema": null,
+              "maxTimeoutSeconds": 60,
+              "extra": {
+                "name": "USDC",
+                "version": "2"
+              }
+            }
+          }
+        },
+        "clientToken": "b51cc65c-99a7-451c-974b-b9df53a88cea"
+      },
+      "ok": true,
+      "latencyMs": 979,
+      "output": {
+        "processPaymentId": "f50898e0-ae13-4fc7-9378-3d65f6c3df1b",
+        "status": "PROOF_GENERATED",
+        "paymentType": "CRYPTO_X402",
+        "responseFields": [
+          "createdAt",
+          "paymentInstrumentId",
+          "paymentManagerArn",
+          "paymentOutput",
+          "paymentSessionId",
+          "paymentType",
+          "processPaymentId",
+          "status",
+          "updatedAt"
+        ],
+        "paymentOutputMembers": [
+          "cryptoX402"
+        ],
+        "createdAt": "2026-11-23T14:47:06.555Z"
+      },
+      "budgetBefore": "0.19 USD",
+      "budgetAfter": "0.18 USD"
     }
-  ]
+  ],
+  "findings": {
+    "both_signed": true,
+    "processPaymentIds": [
+      "3147b201-b67b-41f8-8ac5-79a0c1e5d487",
+      "f50898e0-ae13-4fc7-9378-3d65f6c3df1b"
+    ],
+    "distinct_ids": true,
+    "budget_delta_1st": "0.010000",
+    "budget_delta_2nd": "0.010000"
+  },
+  "paymentSessionId": "payment-session-5SJ00toGDNECdsY",
+  "sessionMaxUsd": "0.20",
+  "finishedAt": "2026-11-23T14:47:07.270Z"
 }

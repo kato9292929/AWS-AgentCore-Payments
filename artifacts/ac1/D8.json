@@ -1,37 +1,290 @@
 {
   "case": "D8",
   "question": "testnet（eip155:84532, x402 v2）で D4: セッション上限が testnet でも効くか",
-  "executed": false,
-  "startedAt": "2026-10-20T06:12:44.877Z",
-  "region": "us-east-1",
+  "executed": true,
+  "startedAt": "2026-11-23T14:47:15.423Z",
+  "region": "ap-southeast-2",
   "seller": [
     "http://127.0.0.1:8402/x402/v2/nickel"
   ],
-  "calls": [],
-  "findings": {},
-  "reason": "資格情報／provision の出力が無い: AGENTCORE_PAYMENT_MANAGER_ARN, AGENTCORE_PAYMENT_INSTRUMENT_ID, PAYMENT_USER_EMAIL",
-  "plannedInputs": [
+  "calls": [
     {
-      "seller": "/x402/v2/nickel",
-      "http_status": 402,
-      "paymentType": "CRYPTO_X402",
-      "paymentInput": {
-        "cryptoX402": {
-          "version": "2",
-          "payload": {
-            "scheme": "exact",
-            "network": "eip155:84532",
-            "amount": "50000",
-            "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-            "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
-            "maxTimeoutSeconds": 60,
-            "extra": {
-              "name": "USDC",
-              "version": "2"
+      "label": "call-1",
+      "clientToken": "4cfd4f30-10a4-49ef-9661-baf534bca763",
+      "input": {
+        "paymentManagerArn": "arn:aws:bedrock-agentcore:ap-southeast-2:337774319058:payment-manager/paymentmanagermum7-r36kpioyxh",
+        "paymentSessionId": "payment-session-HBfbIJusOHps6J6",
+        "paymentInstrumentId": "payment-instrument-mLCJcoWtp3yFJDP",
+        "userId": "harness-user-1",
+        "agentName": "ac1-runner",
+        "paymentType": "CRYPTO_X402",
+        "paymentInput": {
+          "cryptoX402": {
+            "version": "2",
+            "payload": {
+              "scheme": "exact",
+              "network": "eip155:84532",
+              "amount": "50000",
+              "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+              "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+              "maxTimeoutSeconds": 60,
+              "extra": {
+                "name": "USDC",
+                "version": "2"
+              }
             }
           }
-        }
-      }
+        },
+        "clientToken": "4cfd4f30-10a4-49ef-9661-baf534bca763"
+      },
+      "ok": true,
+      "latencyMs": 1042,
+      "output": {
+        "processPaymentId": "b564b4e3-2772-4d7c-bd55-f191ccd635dc",
+        "status": "PROOF_GENERATED",
+        "paymentType": "CRYPTO_X402",
+        "responseFields": [
+          "createdAt",
+          "paymentInstrumentId",
+          "paymentManagerArn",
+          "paymentOutput",
+          "paymentSessionId",
+          "paymentType",
+          "processPaymentId",
+          "status",
+          "updatedAt"
+        ],
+        "paymentOutputMembers": [
+          "cryptoX402"
+        ],
+        "createdAt": "2026-11-23T14:47:16.949Z"
+      },
+      "budgetBefore": "0.2 USD",
+      "budgetAfter": "0.15 USD"
+    },
+    {
+      "label": "call-2",
+      "clientToken": "14a8f027-470e-4bff-93d4-bca7e93c2e4d",
+      "input": {
+        "paymentManagerArn": "arn:aws:bedrock-agentcore:ap-southeast-2:337774319058:payment-manager/paymentmanagermum7-r36kpioyxh",
+        "paymentSessionId": "payment-session-HBfbIJusOHps6J6",
+        "paymentInstrumentId": "payment-instrument-mLCJcoWtp3yFJDP",
+        "userId": "harness-user-1",
+        "agentName": "ac1-runner",
+        "paymentType": "CRYPTO_X402",
+        "paymentInput": {
+          "cryptoX402": {
+            "version": "2",
+            "payload": {
+              "scheme": "exact",
+              "network": "eip155:84532",
+              "amount": "50000",
+              "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+              "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+              "maxTimeoutSeconds": 60,
+              "extra": {
+                "name": "USDC",
+                "version": "2"
+              }
+            }
+          }
+        },
+        "clientToken": "14a8f027-470e-4bff-93d4-bca7e93c2e4d"
+      },
+      "ok": true,
+      "latencyMs": 935,
+      "output": {
+        "processPaymentId": "885cfd30-01f0-4d7a-a535-5b921eb6e96a",
+        "status": "PROOF_GENERATED",
+        "paymentType": "CRYPTO_X402",
+        "responseFields": [
+          "createdAt",
+          "paymentInstrumentId",
+          "paymentManagerArn",
+          "paymentOutput",
+          "paymentSessionId",
+          "paymentType",
+          "processPaymentId",
+          "status",
+          "updatedAt"
+        ],
+        "paymentOutputMembers": [
+          "cryptoX402"
+        ],
+        "createdAt": "2026-11-23T14:47:18.460Z"
+      },
+      "budgetBefore": "0.15 USD",
+      "budgetAfter": "0.1 USD"
+    },
+    {
+      "label": "call-3",
+      "clientToken": "6e441c59-8376-4f80-81b7-00fd3a324cb0",
+      "input": {
+        "paymentManagerArn": "arn:aws:bedrock-agentcore:ap-southeast-2:337774319058:payment-manager/paymentmanagermum7-r36kpioyxh",
+        "paymentSessionId": "payment-session-HBfbIJusOHps6J6",
+        "paymentInstrumentId": "payment-instrument-mLCJcoWtp3yFJDP",
+        "userId": "harness-user-1",
+        "agentName": "ac1-runner",
+        "paymentType": "CRYPTO_X402",
+        "paymentInput": {
+          "cryptoX402": {
+            "version": "2",
+            "payload": {
+              "scheme": "exact",
+              "network": "eip155:84532",
+              "amount": "50000",
+              "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+              "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+              "maxTimeoutSeconds": 60,
+              "extra": {
+                "name": "USDC",
+                "version": "2"
+              }
+            }
+          }
+        },
+        "clientToken": "6e441c59-8376-4f80-81b7-00fd3a324cb0"
+      },
+      "ok": true,
+      "latencyMs": 981,
+      "output": {
+        "processPaymentId": "99f5e8c4-9ab3-4b75-8cd6-0cc9b1eaa799",
+        "status": "PROOF_GENERATED",
+        "paymentType": "CRYPTO_X402",
+        "responseFields": [
+          "createdAt",
+          "paymentInstrumentId",
+          "paymentManagerArn",
+          "paymentOutput",
+          "paymentSessionId",
+          "paymentType",
+          "processPaymentId",
+          "status",
+          "updatedAt"
+        ],
+        "paymentOutputMembers": [
+          "cryptoX402"
+        ],
+        "createdAt": "2026-11-23T14:47:19.965Z"
+      },
+      "budgetBefore": "0.1 USD",
+      "budgetAfter": "0.05 USD"
+    },
+    {
+      "label": "call-4",
+      "clientToken": "7fec01b7-cd6c-484d-b434-b0b768c52cd7",
+      "input": {
+        "paymentManagerArn": "arn:aws:bedrock-agentcore:ap-southeast-2:337774319058:payment-manager/paymentmanagermum7-r36kpioyxh",
+        "paymentSessionId": "payment-session-HBfbIJusOHps6J6",
+        "paymentInstrumentId": "payment-instrument-mLCJcoWtp3yFJDP",
+        "userId": "harness-user-1",
+        "agentName": "ac1-runner",
+        "paymentType": "CRYPTO_X402",
+        "paymentInput": {
+          "cryptoX402": {
+            "version": "2",
+            "payload": {
+              "scheme": "exact",
+              "network": "eip155:84532",
+              "amount": "50000",
+              "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+              "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+              "maxTimeoutSeconds": 60,
+              "extra": {
+                "name": "USDC",
+                "version": "2"
+              }
+            }
+          }
+        },
+        "clientToken": "7fec01b7-cd6c-484d-b434-b0b768c52cd7"
+      },
+      "ok": true,
+      "latencyMs": 863,
+      "output": {
+        "processPaymentId": "4e08209a-2e8b-4c9f-a685-649dd44a2bcd",
+        "status": "PROOF_GENERATED",
+        "paymentType": "CRYPTO_X402",
+        "responseFields": [
+          "createdAt",
+          "paymentInstrumentId",
+          "paymentManagerArn",
+          "paymentOutput",
+          "paymentSessionId",
+          "paymentType",
+          "processPaymentId",
+          "status",
+          "updatedAt"
+        ],
+        "paymentOutputMembers": [
+          "cryptoX402"
+        ],
+        "createdAt": "2026-11-23T14:47:21.351Z"
+      },
+      "budgetBefore": "0.05 USD",
+      "budgetAfter": "0 USD"
+    },
+    {
+      "label": "call-5",
+      "clientToken": "0349faa8-90c2-4649-a360-375da43ba430",
+      "input": {
+        "paymentManagerArn": "arn:aws:bedrock-agentcore:ap-southeast-2:337774319058:payment-manager/paymentmanagermum7-r36kpioyxh",
+        "paymentSessionId": "payment-session-HBfbIJusOHps6J6",
+        "paymentInstrumentId": "payment-instrument-mLCJcoWtp3yFJDP",
+        "userId": "harness-user-1",
+        "agentName": "ac1-runner",
+        "paymentType": "CRYPTO_X402",
+        "paymentInput": {
+          "cryptoX402": {
+            "version": "2",
+            "payload": {
+              "scheme": "exact",
+              "network": "eip155:84532",
+              "amount": "50000",
+              "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+              "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+              "maxTimeoutSeconds": 60,
+              "extra": {
+                "name": "USDC",
+                "version": "2"
+              }
+            }
+          }
+        },
+        "clientToken": "0349faa8-90c2-4649-a360-375da43ba430"
+      },
+      "ok": false,
+      "latencyMs": 275,
+      "error": {
+        "name": "ValidationException",
+        "message": "Insufficient budget for session payment-session-HBfbIJusOHps6J6. Pending amount: 0 USD, Transaction amount: 0.050000 USD",
+        "httpStatus": 400,
+        "fault": "client"
+      },
+      "budgetBefore": "0 USD",
+      "budgetAfter": "0 USD"
     }
-  ]
+  ],
+  "findings": {
+    "network": "eip155:84532",
+    "x402Version": 2,
+    "first_rejected_call": 5,
+    "fifth_rejected": true,
+    "rejection_error": {
+      "name": "ValidationException",
+      "message": "Insufficient budget for session payment-session-HBfbIJusOHps6J6. Pending amount: 0 USD, Transaction amount: 0.050000 USD",
+      "httpStatus": 400,
+      "fault": "client"
+    },
+    "budget_after_each": [
+      "0.15 USD",
+      "0.1 USD",
+      "0.05 USD",
+      "0 USD",
+      "0 USD"
+    ]
+  },
+  "paymentSessionId": "payment-session-HBfbIJusOHps6J6",
+  "sessionMaxUsd": "0.20",
+  "finishedAt": "2026-11-23T14:47:22.798Z"
 }

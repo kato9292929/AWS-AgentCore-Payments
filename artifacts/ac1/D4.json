@@ -1,41 +1,310 @@
 {
   "case": "D4",
   "question": "セッション上限 $0.20 に $0.05 を 5 回: 5 回目が拒否されるか、拒否時のエラー型",
-  "executed": false,
-  "startedAt": "2026-10-20T06:12:44.866Z",
-  "region": "us-east-1",
+  "executed": true,
+  "startedAt": "2026-11-23T14:47:07.271Z",
+  "region": "ap-southeast-2",
   "seller": [
     "http://127.0.0.1:8402/x402/nickel"
   ],
-  "calls": [],
-  "findings": {},
-  "reason": "資格情報／provision の出力が無い: AGENTCORE_PAYMENT_MANAGER_ARN, AGENTCORE_PAYMENT_INSTRUMENT_ID, PAYMENT_USER_EMAIL",
-  "plannedInputs": [
+  "calls": [
     {
-      "seller": "/x402/nickel",
-      "http_status": 402,
-      "paymentType": "CRYPTO_X402",
-      "paymentInput": {
-        "cryptoX402": {
-          "version": "1",
-          "payload": {
-            "scheme": "exact",
-            "network": "base-sepolia",
-            "maxAmountRequired": "50000",
-            "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-            "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
-            "resource": "http://127.0.0.1:8402/x402/nickel",
-            "description": "Testnet $0.05 sample (x402 v1 exact, base-sepolia slug)",
-            "mimeType": "application/json",
-            "outputSchema": null,
-            "maxTimeoutSeconds": 60,
-            "extra": {
-              "name": "USDC",
-              "version": "2"
+      "label": "call-1",
+      "clientToken": "9409242d-54fb-49ef-9b5e-0fd14d7e1921",
+      "input": {
+        "paymentManagerArn": "arn:aws:bedrock-agentcore:ap-southeast-2:337774319058:payment-manager/paymentmanagermum7-r36kpioyxh",
+        "paymentSessionId": "payment-session-CZn7e6VLDGPxwSp",
+        "paymentInstrumentId": "payment-instrument-mLCJcoWtp3yFJDP",
+        "userId": "harness-user-1",
+        "agentName": "ac1-runner",
+        "paymentType": "CRYPTO_X402",
+        "paymentInput": {
+          "cryptoX402": {
+            "version": "1",
+            "payload": {
+              "scheme": "exact",
+              "network": "base-sepolia",
+              "maxAmountRequired": "50000",
+              "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+              "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+              "resource": "http://127.0.0.1:8402/x402/nickel",
+              "description": "Testnet $0.05 sample (x402 v1 exact, base-sepolia slug)",
+              "mimeType": "application/json",
+              "outputSchema": null,
+              "maxTimeoutSeconds": 60,
+              "extra": {
+                "name": "USDC",
+                "version": "2"
+              }
             }
           }
-        }
-      }
+        },
+        "clientToken": "9409242d-54fb-49ef-9b5e-0fd14d7e1921"
+      },
+      "ok": true,
+      "latencyMs": 914,
+      "output": {
+        "processPaymentId": "86f290e4-6312-40e3-858e-bef56001f07e",
+        "status": "PROOF_GENERATED",
+        "paymentType": "CRYPTO_X402",
+        "responseFields": [
+          "createdAt",
+          "paymentInstrumentId",
+          "paymentManagerArn",
+          "paymentOutput",
+          "paymentSessionId",
+          "paymentType",
+          "processPaymentId",
+          "status",
+          "updatedAt"
+        ],
+        "paymentOutputMembers": [
+          "cryptoX402"
+        ],
+        "createdAt": "2026-11-23T14:47:08.695Z"
+      },
+      "budgetBefore": "0.2 USD",
+      "budgetAfter": "0.15 USD"
+    },
+    {
+      "label": "call-2",
+      "clientToken": "bdc2e8b8-08d2-426c-9f32-c1c7efb523dd",
+      "input": {
+        "paymentManagerArn": "arn:aws:bedrock-agentcore:ap-southeast-2:337774319058:payment-manager/paymentmanagermum7-r36kpioyxh",
+        "paymentSessionId": "payment-session-CZn7e6VLDGPxwSp",
+        "paymentInstrumentId": "payment-instrument-mLCJcoWtp3yFJDP",
+        "userId": "harness-user-1",
+        "agentName": "ac1-runner",
+        "paymentType": "CRYPTO_X402",
+        "paymentInput": {
+          "cryptoX402": {
+            "version": "1",
+            "payload": {
+              "scheme": "exact",
+              "network": "base-sepolia",
+              "maxAmountRequired": "50000",
+              "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+              "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+              "resource": "http://127.0.0.1:8402/x402/nickel",
+              "description": "Testnet $0.05 sample (x402 v1 exact, base-sepolia slug)",
+              "mimeType": "application/json",
+              "outputSchema": null,
+              "maxTimeoutSeconds": 60,
+              "extra": {
+                "name": "USDC",
+                "version": "2"
+              }
+            }
+          }
+        },
+        "clientToken": "bdc2e8b8-08d2-426c-9f32-c1c7efb523dd"
+      },
+      "ok": true,
+      "latencyMs": 936,
+      "output": {
+        "processPaymentId": "7227e18e-112f-4d40-bef8-61d69e06019b",
+        "status": "PROOF_GENERATED",
+        "paymentType": "CRYPTO_X402",
+        "responseFields": [
+          "createdAt",
+          "paymentInstrumentId",
+          "paymentManagerArn",
+          "paymentOutput",
+          "paymentSessionId",
+          "paymentType",
+          "processPaymentId",
+          "status",
+          "updatedAt"
+        ],
+        "paymentOutputMembers": [
+          "cryptoX402"
+        ],
+        "createdAt": "2026-11-23T14:47:10.095Z"
+      },
+      "budgetBefore": "0.15 USD",
+      "budgetAfter": "0.1 USD"
+    },
+    {
+      "label": "call-3",
+      "clientToken": "3048c1df-7dcd-4a12-b0e0-6c2d3451d886",
+      "input": {
+        "paymentManagerArn": "arn:aws:bedrock-agentcore:ap-southeast-2:337774319058:payment-manager/paymentmanagermum7-r36kpioyxh",
+        "paymentSessionId": "payment-session-CZn7e6VLDGPxwSp",
+        "paymentInstrumentId": "payment-instrument-mLCJcoWtp3yFJDP",
+        "userId": "harness-user-1",
+        "agentName": "ac1-runner",
+        "paymentType": "CRYPTO_X402",
+        "paymentInput": {
+          "cryptoX402": {
+            "version": "1",
+            "payload": {
+              "scheme": "exact",
+              "network": "base-sepolia",
+              "maxAmountRequired": "50000",
+              "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+              "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+              "resource": "http://127.0.0.1:8402/x402/nickel",
+              "description": "Testnet $0.05 sample (x402 v1 exact, base-sepolia slug)",
+              "mimeType": "application/json",
+              "outputSchema": null,
+              "maxTimeoutSeconds": 60,
+              "extra": {
+                "name": "USDC",
+                "version": "2"
+              }
+            }
+          }
+        },
+        "clientToken": "3048c1df-7dcd-4a12-b0e0-6c2d3451d886"
+      },
+      "ok": true,
+      "latencyMs": 1085,
+      "output": {
+        "processPaymentId": "f21063ec-577d-4b56-912a-fc42ad40d3eb",
+        "status": "PROOF_GENERATED",
+        "paymentType": "CRYPTO_X402",
+        "responseFields": [
+          "createdAt",
+          "paymentInstrumentId",
+          "paymentManagerArn",
+          "paymentOutput",
+          "paymentSessionId",
+          "paymentType",
+          "processPaymentId",
+          "status",
+          "updatedAt"
+        ],
+        "paymentOutputMembers": [
+          "cryptoX402"
+        ],
+        "createdAt": "2026-11-23T14:47:11.670Z"
+      },
+      "budgetBefore": "0.1 USD",
+      "budgetAfter": "0.05 USD"
+    },
+    {
+      "label": "call-4",
+      "clientToken": "b328e2e3-059e-4865-a3ec-6afaf6a30773",
+      "input": {
+        "paymentManagerArn": "arn:aws:bedrock-agentcore:ap-southeast-2:337774319058:payment-manager/paymentmanagermum7-r36kpioyxh",
+        "paymentSessionId": "payment-session-CZn7e6VLDGPxwSp",
+        "paymentInstrumentId": "payment-instrument-mLCJcoWtp3yFJDP",
+        "userId": "harness-user-1",
+        "agentName": "ac1-runner",
+        "paymentType": "CRYPTO_X402",
+        "paymentInput": {
+          "cryptoX402": {
+            "version": "1",
+            "payload": {
+              "scheme": "exact",
+              "network": "base-sepolia",
+              "maxAmountRequired": "50000",
+              "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+              "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+              "resource": "http://127.0.0.1:8402/x402/nickel",
+              "description": "Testnet $0.05 sample (x402 v1 exact, base-sepolia slug)",
+              "mimeType": "application/json",
+              "outputSchema": null,
+              "maxTimeoutSeconds": 60,
+              "extra": {
+                "name": "USDC",
+                "version": "2"
+              }
+            }
+          }
+        },
+        "clientToken": "b328e2e3-059e-4865-a3ec-6afaf6a30773"
+      },
+      "ok": true,
+      "latencyMs": 1498,
+      "output": {
+        "processPaymentId": "e597e1eb-967b-408d-b07c-f55d8e87754a",
+        "status": "PROOF_GENERATED",
+        "paymentType": "CRYPTO_X402",
+        "responseFields": [
+          "createdAt",
+          "paymentInstrumentId",
+          "paymentManagerArn",
+          "paymentOutput",
+          "paymentSessionId",
+          "paymentType",
+          "processPaymentId",
+          "status",
+          "updatedAt"
+        ],
+        "paymentOutputMembers": [
+          "cryptoX402"
+        ],
+        "createdAt": "2026-11-23T14:47:13.713Z"
+      },
+      "budgetBefore": "0.05 USD",
+      "budgetAfter": "0 USD"
+    },
+    {
+      "label": "call-5",
+      "clientToken": "2f8217a7-4c35-44ce-9e9a-9163b341f073",
+      "input": {
+        "paymentManagerArn": "arn:aws:bedrock-agentcore:ap-southeast-2:337774319058:payment-manager/paymentmanagermum7-r36kpioyxh",
+        "paymentSessionId": "payment-session-CZn7e6VLDGPxwSp",
+        "paymentInstrumentId": "payment-instrument-mLCJcoWtp3yFJDP",
+        "userId": "harness-user-1",
+        "agentName": "ac1-runner",
+        "paymentType": "CRYPTO_X402",
+        "paymentInput": {
+          "cryptoX402": {
+            "version": "1",
+            "payload": {
+              "scheme": "exact",
+              "network": "base-sepolia",
+              "maxAmountRequired": "50000",
+              "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+              "payTo": "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+              "resource": "http://127.0.0.1:8402/x402/nickel",
+              "description": "Testnet $0.05 sample (x402 v1 exact, base-sepolia slug)",
+              "mimeType": "application/json",
+              "outputSchema": null,
+              "maxTimeoutSeconds": 60,
+              "extra": {
+                "name": "USDC",
+                "version": "2"
+              }
+            }
+          }
+        },
+        "clientToken": "2f8217a7-4c35-44ce-9e9a-9163b341f073"
+      },
+      "ok": false,
+      "latencyMs": 370,
+      "error": {
+        "name": "ValidationException",
+        "message": "Insufficient budget for session payment-session-CZn7e6VLDGPxwSp. Pending amount: 0 USD, Transaction amount: 0.050000 USD",
+        "httpStatus": 400,
+        "fault": "client"
+      },
+      "budgetBefore": "0 USD",
+      "budgetAfter": "0 USD"
     }
-  ]
+  ],
+  "findings": {
+    "network": "base-sepolia",
+    "x402Version": 1,
+    "first_rejected_call": 5,
+    "fifth_rejected": true,
+    "rejection_error": {
+      "name": "ValidationException",
+      "message": "Insufficient budget for session payment-session-CZn7e6VLDGPxwSp. Pending amount: 0 USD, Transaction amount: 0.050000 USD",
+      "httpStatus": 400,
+      "fault": "client"
+    },
+    "budget_after_each": [
+      "0.15 USD",
+      "0.1 USD",
+      "0.05 USD",
+      "0 USD",
+      "0 USD"
+    ]
+  },
+  "paymentSessionId": "payment-session-CZn7e6VLDGPxwSp",
+  "sessionMaxUsd": "0.20",
+  "finishedAt": "2026-11-23T14:47:15.422Z"
 }
