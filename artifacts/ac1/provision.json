@@ -32,9 +32,12 @@
   "coinbase": {
     "paymentConnectorId": "coinbase1-wubbi6q4wk",
     "connectorStatus": "READY",
-    "instrument_error": {
-      "code": "AccessDeniedException",
-      "message": "Failed to obtain resource payment token."
+    "instrument": {
+      "paymentInstrumentId": "payment-instrument-mLCJcoWtp3yFJDP",
+      "status": "ACTIVE",
+      "walletAddress": "0xd66770b8769F2b5eA0D86476A24965a5AD2987B5",
+      "has_redirectUrl": true,
+      "createdAt": "2026-11-23T14:43:52Z"
     }
   }
 }
