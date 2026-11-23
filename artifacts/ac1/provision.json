@@ -28,5 +28,13 @@
     "code": "AccessDeniedException",
     "message": "Privy credentials are invalid. Please verify the credential configuration.",
     "at": "2026-11-22T19:44:31Z"
+  },
+  "coinbase": {
+    "paymentConnectorId": "coinbase1-wubbi6q4wk",
+    "connectorStatus": "READY",
+    "instrument_error": {
+      "code": "AccessDeniedException",
+      "message": "Failed to obtain resource payment token."
+    }
   }
 }
