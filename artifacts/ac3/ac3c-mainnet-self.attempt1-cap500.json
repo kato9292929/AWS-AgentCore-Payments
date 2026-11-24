@@ -1,0 +1,78 @@
+{
+  "measuredAt": "2026-11-24T11:05:49.317Z",
+  "seller": "self（402 を自分で組み、Coinbase CDP facilitator で settle。payTo = 自分のウォレット）",
+  "facilitator": "https://api.cdp.coinbase.com/platform/v2/x402",
+  "facilitatorAddress": "0xCA5e87f82B3FA093800e6ad67D621A427D79c70D",
+  "cap_atomic": "500",
+  "charge_atomic": "100",
+  "session_max_usd": "0.002",
+  "permit2AllowanceLimit_first_call_only": "2200",
+  "payto_guard": "allowed (seller=self)",
+  "guards": {
+    "allow_mainnet": true
+  },
+  "executed": true,
+  "successful_calls": 0,
+  "first_rejected_call": null,
+  "verdict": "22 回すべて通った（拒否まで届かず）",
+  "approve_tx": {
+    "txHash": "0xe9a1d9ff429c268195894f8bff9f9405aa373692a99e5c16d9ec592d6f7a0384",
+    "blockNumber": "61639883",
+    "value": "2200",
+    "gasUsed": "38265",
+    "gasCostEth": "0.000000230091845475"
+  },
+  "approve_gas_eth": "0.000000230091845475",
+  "eth": {
+    "before": "0.00009943680259144",
+    "after": "0.000098972605716593"
+  },
+  "allowance_permit2": {
+    "unit": "USDC の最小単位（6 decimals）",
+    "before_test": "1",
+    "after_test": "2200",
+    "after_shrink": "1"
+  },
+  "shrink": {
+    "executed": true,
+    "processPaymentId": "2224556a-d9c4-41fa-90af-fb23a257a0f7",
+    "status": "PROOF_GENERATED",
+    "budget_before": "0.01 USD",
+    "budget_after": "0.009999 USD",
+    "approve_tx": {
+      "txHash": "0x0d223fa7b7f5226a7722dddd929b265e47ec740dde21d2d3063450b0a37db098",
+      "blockNumber": "61639926",
+      "value": "1",
+      "gasUsed": "38253",
+      "gasCostEth": "0.000000230090417892"
+    },
+    "approve_gas_eth": "0.000000230090417892",
+    "allowance_after": "1",
+    "allowance_is_1": true
+  },
+  "wallet_operations": {
+    "test_process_payment": 1,
+    "shrink_process_payment": 1,
+    "fee_per_operation_usd": "0.005"
+  },
+  "calls": [
+    {
+      "i": 1,
+      "permit2AllowanceLimit": "2200",
+      "budget_before": "0.002 USD",
+      "processPaymentId": "482d3278-dd7a-4bfc-bf93-26e74f2a55d9",
+      "status": "PROOF_GENERATED",
+      "budget_after_proof": "0.0015 USD",
+      "verify": {
+        "httpStatus": 400,
+        "invalidMessage": "amount is too low: 500",
+        "invalidReason": "amount_too_low",
+        "isValid": false
+      },
+      "error": {
+        "name": "facilitator_verify_failed"
+      },
+      "budget_after_settle_5s": "0.0015 USD"
+    }
+  ]
+}
