@@ -4,7 +4,7 @@
  * AC-3b（2s）は 3 回とも上限額いっぱいで請求され、区別できなかった。ここでは売り手の役を自分でやる:
  *   - 402 の要求を自分で組む（upto / eip155:8453 / USDC / payTo = 自分のウォレット）
  *   - ProcessPayment で署名を受け取り、Coinbase CDP の facilitator に /verify（上限額）と /settle（実額）を投げる
- *   - 支払い先は自分のウォレットなので USDC は外に出ない（出るのは approve の gas と AgentCore のウォレット操作の手数料）
+ *   - 支払い先は allowlist の seller=self（本人の別ウォレット）。payer==payTo は CDP が self_send_not_allowed で拒否する
  *
  * 上限 $0.0025 / 実額 $0.0005 / セッション上限 $0.01 で繰り返し、何回目で拒否されるかを見る。
  *   4 回で止まる  → 上限額で減っている
@@ -80,7 +80,7 @@ async function main(): Promise<number> {
     network: NETWORK,
     amount,
     asset: USDC,
-    payTo: wallet,
+    payTo: PAY_TO,
     maxTimeoutSeconds: 360,
     extra: { name: "USD Coin", version: "2", facilitatorAddress: kind.extra!.facilitatorAddress! },
   });
@@ -89,10 +89,12 @@ async function main(): Promise<number> {
   // payTo ガード: seller=self のエントリだけ
   const entries = (JSON.parse(readFileSync("config/payto-allowlist.mainnet.json", "utf8")) as { entries: Array<PayToEntry & { seller: string }> }).entries;
   const guard = new PayToAllowlist(entries.filter((e) => e.seller === "self"));
-  const verdict = guard.check({ payTo: wallet, network: NETWORK });
+  const PAY_TO = guard.entries[0]?.payTo ?? "";
+  if (PAY_TO.toLowerCase() === wallet.toLowerCase()) throw new Error("payTo が支払う側と同じ（CDP は self_send_not_allowed で拒否する）");
+  const verdict = guard.check({ payTo: PAY_TO, network: NETWORK });
   const record: Record<string, unknown> = {
     measuredAt: new Date().toISOString(),
-    seller: "self（402 を自分で組み、Coinbase CDP facilitator で settle。payTo = 自分のウォレット）",
+    seller: "self（402 を自分で組み、Coinbase CDP facilitator で settle。payTo = 本人の別ウォレット）",
     facilitator: fac.url,
     facilitatorAddress: kind.extra.facilitatorAddress,
     cap_atomic: CAP,

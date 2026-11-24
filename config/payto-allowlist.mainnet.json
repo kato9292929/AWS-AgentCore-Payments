@@ -3,7 +3,7 @@
     "AC-3b 専用（mainnet）。scripts/ac3/ac3b_mainnet.py だけが読む。ハーネス本体（src/）は読まない。",
     "ac3b_mainnet.py は売り手ごとに seller が一致するエントリだけを使う（2s を払うときは 2s の payTo だけが通る）。",
     "payTo は 2026-10-20 の 402 で確認したもの。実行時に 402 の payTo が変わっていたら allowlist 不一致で署名しない。",
-    "self は AC-3c 専用（scripts/ac3/ac3c_mainnet_self.ts）。支払い先を自分のウォレットにして、upto の予算の減り方だけを測る（お金は外に出ない）。"
+    "self は AC-3c 専用（scripts/ac3/ac3c_mainnet_self.ts）。自前で 402 を組む。支払い先は AgentCore ウォレットへ入金した送金元（本人のウォレット。2026-11-24 の入金 tx 0xd173a83e… の from）。payer==payTo は CDP が self_send_not_allowed で拒否するため別アドレスにした。"
   ],
   "entries": [
     {
@@ -24,8 +24,8 @@
     },
     {
       "seller": "self",
-      "label": "自分のウォレット（AC-3c。upto の上限額と実額の差を作るための自前 seller）",
-      "payTo": "0xd66770b8769F2b5eA0D86476A24965a5AD2987B5",
+      "label": "本人のウォレット（AC-3c。upto の上限額と実額の差を作るための自前 seller の支払い先）",
+      "payTo": "0xc67d94504696960ba0f2e7c3fee703950734c00a",
       "networks": [
         "eip155:8453"
       ]
