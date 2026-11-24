@@ -1,6 +1,6 @@
 # AC-3 結果: upto スキームでの上限の扱い
 
-生成: 2026-11-24T00:03:38+09:00（`npx tsx scripts/report.ts`。値は artifacts/ac3/ からのみ取る）
+生成: 2026-11-24T14:26:22+09:00（`npx tsx scripts/report.ts`。値は artifacts/ac3/ からのみ取る）
 
 ```
 区分   項目                                                値                                                            状態
@@ -15,15 +15,15 @@ AC-3a  縮めるステップ（approve を 1 に）の gas 代          -       
 AC-3a  縮めるステップの予算の減り方                        -                                                             未実施（資格情報／provision の出力が無い）
 AC-3a  ウォレット操作の回数（$0.005/回）                   -                                                             未実施（資格情報／provision の出力が無い）
 AC-3a  upto facilitator                                    https://x402.org/facilitator（upto on eip155:84532, facilitatorAddress 0xd407e409…）  確認済み（未入金鍵の署名で /verify → permit2_insufficient_balance）
-AC-3b  2s の upto（402）                                   上限 2500（amount）/ eip155:8453 / payTo 0x2b6D4988… / facilitator 0x8F5cB67B…  実測（402 のみ。署名していない）
-AC-3b  2s の予算の減り方（upto）                           -                                                             未実施（本人判断待ち。--allow-mainnet なしでは署名しない）
+AC-3b  2s の upto（402）                                   上限 2500（amount）/ eip155:8453 / payTo 0x2b6D4988… / facilitator 0x8F5cB67B…  実測
+AC-3b  2s の予算の減り方（upto）                           オンチェーン決済 $0.0025, $0.0025, $0.0025（上限額いっぱいで決済。回ごとの残予算は記録が欠けた）  実測（チェーンから読み直し）
 AC-3b  2s の承認額（初回のみ permit2AllowanceLimit）       10000（0.01 USDC）                                            設定
-AC-3b  2s の approve の gas 代（Base mainnet）             -                                                             未実施（同上）
-AC-3b  Permit2 の allowance（試験前 → 試験後 → 縮めた後）  -                                                             未実施（同上）
-AC-3b  縮めるステップ（approve を 1 に）の gas 代          -                                                             未実施（同上）
-AC-3b  縮めるステップの予算の減り方                        -                                                             未実施（同上）
-AC-3b  ウォレット操作の回数（$0.005/回）                   -                                                             未実施（同上）
-AC-3b  BlockRun（exact の参照値）                          upto を返さない：exact eip155:8453 2000                       402 のみ実測。支払いは未実施（同上）
+AC-3b  2s の approve の gas 代（Base mainnet）             3.3219E-7 ETH                                                 実測
+AC-3b  Permit2 の allowance（試験前 → 試験後 → 縮めた後）  0 → 10000 → 1（1 を確認）                                     実測
+AC-3b  縮めるステップ（approve を 1 に）の gas 代          2.29518E-7 ETH（tx 0x7712cb0b38…）                            実測
+AC-3b  縮めるステップの予算の減り方                        - → -（専用セッション $0.01）                                 実測
+AC-3b  ウォレット操作の回数（$0.005/回）                   試験 3 回 + 縮める 1 回 = 4 回（$0.020）                      実測
+AC-3b  BlockRun（exact の参照値）                          upto を返さない：exact eip155:8453 2000 / 支払い 1 回         実測
 ```
 
 ## 判定の読み方（AC-3a）

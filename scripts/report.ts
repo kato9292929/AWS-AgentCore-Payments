@@ -342,13 +342,17 @@ function ac3(): { md: string; tableText: string } {
       uptoOffer
         ? `上限 ${uptoOffer["maxAmountRequired"]}（${uptoOffer["field"]}）/ ${uptoOffer["network"]} / payTo ${String(uptoOffer["payTo"]).slice(0, 10)}… / facilitator ${String(uptoOffer["facilitatorAddress"]).slice(0, 10)}…`
         : s2 ? "upto を返さない" : "-",
-      s2 ? "実測（402 のみ。署名していない）" : "未実施",
+      s2?.["paid"] ? "実測" : s2 ? "実測（402 のみ。署名していない）" : "未実施",
     ],
     [
       "AC-3b",
       "2s の予算の減り方（upto）",
-      s2?.["paid"] ? paidRuns(s2).map((r) => `${r["budget_before"]}→${r["budget_after_settle_5s"]}`).join(", ") : "-",
-      s2?.["paid"] ? "実測" : "未実施（本人判断待ち。--allow-mainnet なしでは署名しない）",
+      s2?.["paid"]
+        ? Array.isArray(s2["runs"])
+          ? paidRuns(s2).map((r) => `${r["budget_before"]}→${r["budget_after_settle_5s"]}`).join(", ")
+          : `オンチェーン決済 ${(s2["settlements_onchain"] as J[]).map((x) => `$${x["usd"]}`).join(", ")}（上限額いっぱいで決済。回ごとの残予算は記録が欠けた）`
+        : "-",
+      s2?.["paid"] ? (Array.isArray(s2["runs"]) ? "実測" : "実測（チェーンから読み直し）") : "未実施（本人判断待ち。--allow-mainnet なしでは署名しない）",
     ],
     ["AC-3b", "2s の承認額（初回のみ permit2AllowanceLimit）", "10000（0.01 USDC）", "設定"],
     [

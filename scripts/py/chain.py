@@ -24,15 +24,32 @@ def _pad(addr: str) -> str:
     return "0x" + addr.lower().removeprefix("0x").rjust(64, "0")
 
 
+FALLBACK_RPC = {"https://mainnet.base.org": "https://base-rpc.publicnode.com"}
+
+
 class Chain:
     def __init__(self, rpc: str):
         self.rpc = rpc
 
     def call(self, method: str, params: List[Any]) -> Any:
-        r = httpx.post(self.rpc, json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params}, timeout=20).json()
-        if "error" in r:
-            raise RuntimeError(f"{method}: {r['error']}")
-        return r["result"]
+        try:
+            return self._call(self.rpc, method, params)
+        except RuntimeError:
+            # mainnet.base.org は eth_getLogs の回数制限が続くことがある。別の公開 RPC で引き直す
+            if self.rpc not in FALLBACK_RPC:
+                raise
+            return self._call(FALLBACK_RPC[self.rpc], method, params)
+
+    def _call(self, rpc: str, method: str, params: List[Any]) -> Any:
+        # 公開 RPC は短時間に eth_getLogs を刻むと -32011 "request limit reached" を返す。待って引き直す
+        for attempt in range(3):
+            r = httpx.post(rpc, json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params}, timeout=20).json()
+            if "error" not in r:
+                return r["result"]
+            if r["error"].get("code") not in (-32011, -32005, 429) or attempt == 2:
+                raise RuntimeError(f"{method}: {r['error']}")
+            time.sleep(2 * (attempt + 1))
+        raise AssertionError("unreachable")
 
     def block_number(self) -> int:
         return int(self.call("eth_blockNumber", []), 16)
@@ -41,8 +58,8 @@ class Chain:
         data = "0xdd62ed3e" + _pad(owner)[2:] + _pad(PERMIT2)[2:]  # allowance(address,address)
         return str(int(self.call("eth_call", [{"to": usdc, "data": data}, "latest"]), 16))
 
-    def approvals(self, usdc: str, owner: str, from_block: int) -> List[Dict[str, Any]]:
-        latest = self.block_number()
+    def approvals(self, usdc: str, owner: str, from_block: int, to_block: Optional[int] = None) -> List[Dict[str, Any]]:
+        latest = self.block_number() if to_block is None else to_block
         out: List[Dict[str, Any]] = []
         b = from_block
         while b <= latest:

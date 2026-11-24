@@ -143,7 +143,7 @@ def ledger_total() -> Decimal:
 
 def ledger_add(usd: Decimal, ref: str, seller: str) -> None:
     d = json.loads(LEDGER.read_text()) if LEDGER.exists() else {"total_usd": "0", "entries": []}
-    d["entries"].append({"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "seller": seller, "usd": str(usd), "ref": ref})
+    d["entries"].append({"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "seller": seller, "usd": str(usd), "tx": ref})
     d["total_usd"] = str(Decimal(d["total_usd"]) + usd)
     LEDGER.parent.mkdir(parents=True, exist_ok=True)
     LEDGER.write_text(json.dumps(d, indent=2) + "\n")
@@ -419,6 +419,15 @@ def main() -> int:
             record["sellers"][key]["reason"] = "--allow-mainnet が無い（402 を見ただけ。署名していない）"
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
+    # 売り手を絞って走らせたときは、ほかの売り手の記録を残したまま上書きする
+    if OUT.exists() and set(keys) != set(SELLERS):
+        prev = json.loads(OUT.read_text(encoding="utf-8"))
+        prev.setdefault("sellers", {}).update(record["sellers"])
+        prev["guards"] = record["guards"]
+        if "ledger_total_usd" in record:
+            prev["ledger_total_usd"] = record["ledger_total_usd"]
+        prev.setdefault("runs_at", []).append({"measuredAt": record["measuredAt"], "sellers": keys})
+        record = prev
     OUT.write_text(json.dumps(scrub(record), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({k: v["probe"] for k, v in record["sellers"].items()}, ensure_ascii=False, indent=2))
     return 0

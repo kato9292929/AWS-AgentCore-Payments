@@ -131,6 +131,29 @@ export function fromAc3b(d: Record<string, any> | undefined): Row[] {
   const rows: Row[] = [];
   for (const [, sel] of Object.entries((d?.["sellers"] ?? {}) as Record<string, Record<string, any>>)) {
     if (!sel["paid"]) continue;
+    // 後処理で落ちた実行は runs が無く、決済はチェーンから読み直した settlements_onchain にだけある
+    if (!Array.isArray(sel["runs"])) {
+      (sel["settlements_onchain"] ?? []).forEach((st: Record<string, any>, i: number) => {
+        rows.push({
+          timestamp: toJst(st["ledger_at"] ?? d!["measuredAt"]),
+          seller_host: host(sel["url"]),
+          protocol: "x402",
+          scheme: "upto",
+          network: "eip155:8453",
+          price: st["usd"] ?? null,
+          settled_amount: st["usd"] ?? null,
+          gas: i === 0 && sel["approve_gas_eth"] ? sel["approve_gas_eth"] : "0",
+          latency_ms: null,
+          http_status: null,
+          delivered: st["status"] === "success",
+          processPaymentId: null,
+          tx_hash: st["tx"] ?? null,
+          source: "artifacts/ac3/ac3b-mainnet.json#settlements_onchain",
+          path: "agentcore",
+        });
+      });
+      continue;
+    }
     for (const r of sel["runs"] as Array<Record<string, any>>) {
       const pp = (sel["process_payment"] ?? [])[r["i"] - 1] ?? {};
       const st = r["settlement"] ?? {};

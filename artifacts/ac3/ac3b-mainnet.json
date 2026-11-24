@@ -1,7 +1,7 @@
 {
   "measuredAt": "2026-10-23T05:47:50Z",
   "guards": {
-    "allow_mainnet": false,
+    "allow_mainnet": true,
     "session_cap_usd": "0.20",
     "total_cap_usd": "1.00",
     "per_call_cap_usd": "0.05"
@@ -50,8 +50,73 @@
         ],
         "offers_upto": true
       },
-      "paid": false,
-      "reason": "--allow-mainnet が無い（402 を見ただけ。署名していない）"
+      "paid": true,
+      "reason": "--allow-mainnet が無い（402 を見ただけ。署名していない）",
+      "measuredAt": "2026-11-24T05:17Z",
+      "recovered_from_chain": "3 回の決済と承認の縮小までは終わった。その後の後処理で eth_getLogs が公開 RPC の回数制限（-32011）に当たって落ち、ファイルに書けなかった。そのため決済・承認・allowance はチェーンから読み直した。この実行の回ごとの残予算（budget_before / after）は残っていない。",
+      "settlements_onchain": [
+        {
+          "tx": "0xb446fcd5a9bd5f1afa8e1f89bed4cd6fc0c57d5edb1bc5b43bea0089a2a55a4c",
+          "block": "61535196",
+          "status": "success",
+          "usdc_atomic": "2500",
+          "usd": "0.0025",
+          "payTo": "0x2b6D4988Db4723E6908Db86Ab2b8dFBc51FC32C5",
+          "ledger_at": "2026-11-24T05:17:00Z"
+        },
+        {
+          "tx": "0x23caf9e0cb26601fba87af8daab5e7306f4057df4ca9ea5796cde330baef3a6b",
+          "block": "61535245",
+          "status": "success",
+          "usdc_atomic": "2500",
+          "usd": "0.0025",
+          "payTo": "0x2b6D4988Db4723E6908Db86Ab2b8dFBc51FC32C5",
+          "ledger_at": "2026-11-24T05:17:10Z"
+        },
+        {
+          "tx": "0x62a8b85573c3fd5e5b0c18c8ecb912eb427f55dd93f3d820c21c35534101ee57",
+          "block": "61535294",
+          "status": "success",
+          "usdc_atomic": "2500",
+          "usd": "0.0025",
+          "payTo": "0x2b6D4988Db4723E6908Db86Ab2b8dFBc51FC32C5",
+          "ledger_at": "2026-11-24T05:17:19Z"
+        }
+      ],
+      "charged_per_call_usd": "0.0025（upto の上限額いっぱいで決済された）",
+      "approve_tx": {
+        "txHash": "0x7b5043c28df1de014de76c6625ac228cd783ac43cbca424d7d0bf4f1ab4a6a69",
+        "blockNumber": "61535181",
+        "value": "10000",
+        "gasUsed": "55365",
+        "gasCostEth": "3.3219E-7"
+      },
+      "approve_gas_eth": "3.3219E-7",
+      "shrink": {
+        "executed": true,
+        "approve_tx": {
+          "txHash": "0x7712cb0b38b7e8a93fedb5a8fdf2db588cc2e2a0113bbda0f88d49c6c2c96e74",
+          "blockNumber": "61535339",
+          "value": "1",
+          "gasUsed": "38253",
+          "gasCostEth": "2.29518E-7"
+        },
+        "allowance_after": "1",
+        "allowance_is_1": true,
+        "approve_gas_eth": "2.29518E-7",
+        "budget_before": null,
+        "budget_after": null
+      },
+      "allowance_permit2": {
+        "unit": "USDC の最小単位（6 decimals）",
+        "before_test": "0",
+        "after_shrink": "1",
+        "after_test": "10000"
+      },
+      "wallet_operations": {
+        "test_process_payment": 3,
+        "shrink_process_payment": 1
+      }
     },
     "blockrun": {
       "url": "https://blockrun.ai/api/v1/chat/completions",
@@ -74,8 +139,77 @@
         ],
         "offers_upto": false
       },
-      "paid": false,
-      "reason": "--allow-mainnet が無い（402 を見ただけ。署名していない）"
+      "paid": true,
+      "runs": [
+        {
+          "i": 1,
+          "scheme": "exact",
+          "offer": {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "maxAmountRequired": "2000",
+            "field": "amount",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            "payTo": "0xe9030014F5DAe217d0A152f02A043567b16c1aBf",
+            "maxTimeoutSeconds": 300,
+            "facilitatorAddress": null,
+            "extra_name": "USD Coin"
+          },
+          "permit2AllowanceLimit": null,
+          "budget_before": "0.2 USD",
+          "budget_after_proof": "0.198 USD",
+          "http_status": 200,
+          "latency_ms": 3808,
+          "cap_usd": "0.002",
+          "settlement": {
+            "success": true,
+            "transaction": "0xf338c15190555db035dd6dbdb653f57633790efe853fc2be4f8983e0c5c08813",
+            "network": "eip155:8453",
+            "payer": "0xd66770b8769F2b5eA0D86476A24965a5AD2987B5"
+          },
+          "budget_after_settle_5s": "0.198 USD"
+        }
+      ],
+      "permit2AllowanceLimit_first_call_only": null,
+      "approve_tx": null,
+      "approve_gas_eth": null,
+      "allowance_permit2": null,
+      "shrink": null,
+      "wallet_operations": {
+        "test_process_payment": 1,
+        "shrink_process_payment": 0,
+        "fee_per_operation_usd": "0.005"
+      },
+      "process_payment": [
+        {
+          "plane": "agentcore",
+          "client_token": "6f08e698-ab68-4e3c-9b8e-238cd82f5d33",
+          "payment_type": "CRYPTO_X402",
+          "payment_session_id": "payment-session-ny6DCBfZjUMuql6",
+          "payload_summary": {
+            "rail": "x402",
+            "version": "2",
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "amount": "2000",
+            "payTo": "0xe9030014F5DAe217d0A152f02A043567b16c1aBf"
+          },
+          "at": 1795497897.3030906,
+          "process_payment_id": "4f7666b7-017c-4a6d-94c0-344f124afb1e",
+          "status": "PROOF_GENERATED",
+          "error": null,
+          "extra": {}
+        }
+      ]
     }
-  }
+  },
+  "ledger_total_usd": "0.0095",
+  "runs_at": [
+    {
+      "measuredAt": "2026-11-24T05:24:53Z",
+      "sellers": [
+        "blockrun"
+      ]
+    }
+  ]
 }

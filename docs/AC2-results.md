@@ -1,6 +1,6 @@
 # AC-2 結果: Coinbase 経路での実払いの一周（T4/T5）
 
-生成: 2026-11-24T00:03:38+09:00（`npx tsx scripts/report.ts`。値は artifacts/ac2/ からのみ取る）
+生成: 2026-11-24T14:26:22+09:00（`npx tsx scripts/report.ts`。値は artifacts/ac2/ からのみ取る）
 
 ```
 項目                     値                                                            状態

@@ -1,4 +1,8 @@
 timestamp,seller_host,protocol,scheme,network,price,settled_amount,gas,latency_ms,http_status,delivered,processPaymentId,tx_hash,source,path
+2026-11-24T14:17:00+09:00,2s.io,x402,upto,eip155:8453,0.0025,0.0025,3.3219E-7,,,true,,0xb446fcd5a9bd5f1afa8e1f89bed4cd6fc0c57d5edb1bc5b43bea0089a2a55a4c,artifacts/ac3/ac3b-mainnet.json#settlements_onchain,agentcore
+2026-11-24T14:17:10+09:00,2s.io,x402,upto,eip155:8453,0.0025,0.0025,0,,,true,,0x23caf9e0cb26601fba87af8daab5e7306f4057df4ca9ea5796cde330baef3a6b,artifacts/ac3/ac3b-mainnet.json#settlements_onchain,agentcore
+2026-11-24T14:17:19+09:00,2s.io,x402,upto,eip155:8453,0.0025,0.0025,0,,,true,,0x62a8b85573c3fd5e5b0c18c8ecb912eb427f55dd93f3d820c21c35534101ee57,artifacts/ac3/ac3b-mainnet.json#settlements_onchain,agentcore
+2026-10-23T14:47:50+09:00,blockrun.ai,x402,exact,eip155:8453,0.002,,0,3808,200,true,4f7666b7-017c-4a6d-94c0-344f124afb1e,0xf338c15190555db035dd6dbdb653f57633790efe853fc2be4f8983e0c5c08813,artifacts/ac3/ac3b-mainnet.json,agentcore
 2026-10-20T17:44:51+09:00,x402.org,x402,exact,eip155:84532,0.010000,,,,402,false,,,artifacts/ac4/probe/probe.json,probe-only
 2026-10-20T17:44:51+09:00,x402.org,x402,exact,solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1,0.010000,,,,402,false,,,artifacts/ac4/probe/probe.json,probe-only
 2026-10-20T17:44:51+09:00,api.onesource.io,x402,exact,eip155:8453,0.001000,,,,402,false,,,artifacts/ac4/probe/probe.json,probe-only
