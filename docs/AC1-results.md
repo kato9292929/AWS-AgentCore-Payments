@@ -1,6 +1,6 @@
 # AC-1 結果: ProcessPayment の冪等性と、支払いを止める条件
 
-生成: 2026-11-24T14:26:22+09:00（`npx tsx scripts/report.ts`。値は artifacts/ac1/*.json からのみ取る）
+生成: 2026-11-24T15:02:13+09:00（`npx tsx scripts/report.ts`。値は artifacts/ac1/*.json からのみ取る）
 
 ```
 ケース  内容                                                確かめること                                              区分                  値

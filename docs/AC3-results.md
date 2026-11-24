@@ -1,6 +1,6 @@
 # AC-3 結果: upto スキームでの上限の扱い
 
-生成: 2026-11-24T14:26:22+09:00（`npx tsx scripts/report.ts`。値は artifacts/ac3/ からのみ取る）
+生成: 2026-11-24T15:02:13+09:00（`npx tsx scripts/report.ts`。値は artifacts/ac3/ からのみ取る）
 
 ```
 区分   項目                                                値                                                            状態
@@ -16,7 +16,7 @@ AC-3a  縮めるステップの予算の減り方                        -      
 AC-3a  ウォレット操作の回数（$0.005/回）                   -                                                             未実施（資格情報／provision の出力が無い）
 AC-3a  upto facilitator                                    https://x402.org/facilitator（upto on eip155:84532, facilitatorAddress 0xd407e409…）  確認済み（未入金鍵の署名で /verify → permit2_insufficient_balance）
 AC-3b  2s の upto（402）                                   上限 2500（amount）/ eip155:8453 / payTo 0x2b6D4988… / facilitator 0x8F5cB67B…  実測
-AC-3b  2s の予算の減り方（upto）                           オンチェーン決済 $0.0025, $0.0025, $0.0025（上限額いっぱいで決済。回ごとの残予算は記録が欠けた）  実測（チェーンから読み直し）
+AC-3b  2s の予算の減り方（upto）                           オンチェーン決済 $0.0025, $0.0025, $0.0025（3 回とも上限額いっぱい。回ごとの残予算は記録が欠けた）  未判定（実額＝上限額なので上限額で減るか実額で減るか区別できない。残予算の記録も無い。実額＜上限額になる売り手で測り直しが必要）
 AC-3b  2s の承認額（初回のみ permit2AllowanceLimit）       10000（0.01 USDC）                                            設定
 AC-3b  2s の approve の gas 代（Base mainnet）             3.3219E-7 ETH                                                 実測
 AC-3b  Permit2 の allowance（試験前 → 試験後 → 縮めた後）  0 → 10000 → 1（1 を確認）                                     実測
