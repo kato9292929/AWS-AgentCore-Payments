@@ -1,5 +1,5 @@
 {
-  "total_usd": "0.0095",
+  "total_usd": "0.0135",
   "entries": [
     {
       "at": "2026-11-24T05:17:00Z",
@@ -24,6 +24,30 @@
       "seller": "blockrun",
       "usd": "0.002",
       "tx": "0xf338c15190555db035dd6dbdb653f57633790efe853fc2be4f8983e0c5c08813"
+    },
+    {
+      "at": "2026-11-28T06:39:04Z",
+      "seller": "self",
+      "usd": "0.001",
+      "tx": "0x0b1dff0c314c6d3d53402dfa6db325826288f9b506a4003d5246a6b0ddd2ec29"
+    },
+    {
+      "at": "2026-11-28T06:39:12Z",
+      "seller": "self",
+      "usd": "0.001",
+      "tx": "0xf955385e3bcd532b1748aba1729b0ffdee6918536cd0ce82c967631384bf2287"
+    },
+    {
+      "at": "2026-11-28T06:39:20Z",
+      "seller": "self",
+      "usd": "0.001",
+      "tx": "0x2e8c79fc23e4f4c17e46ffc6779fe854c7f92f21adcc68d7fe1c2e6fc8b5f8bc"
+    },
+    {
+      "at": "2026-11-28T06:39:27Z",
+      "seller": "self",
+      "usd": "0.001",
+      "tx": "0x97fb71ef18a7841606f47c786e8c5509504a81f5d6c8bce42a3f0567ee2e2158"
     }
   ]
 }

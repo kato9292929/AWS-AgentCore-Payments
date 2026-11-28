@@ -1,6 +1,6 @@
 # AC-3 結果: upto スキームでの上限の扱い
 
-生成: 2026-11-24T15:02:13+09:00（`npx tsx scripts/report.ts`。値は artifacts/ac3/ からのみ取る）
+生成: 2026-11-28T15:39:53+09:00（`npx tsx scripts/report.ts`。値は artifacts/ac3/ からのみ取る）
 
 ```
 区分   項目                                                値                                                            状態
@@ -23,6 +23,12 @@ AC-3b  Permit2 の allowance（試験前 → 試験後 → 縮めた後）  0 �
 AC-3b  縮めるステップ（approve を 1 に）の gas 代          2.29518E-7 ETH（tx 0x7712cb0b38…）                            実測
 AC-3b  縮めるステップの予算の減り方                        - → -（専用セッション $0.01）                                 実測
 AC-3b  ウォレット操作の回数（$0.005/回）                   試験 3 回 + 縮める 1 回 = 4 回（$0.020）                      実測
+AC-3c  upto の予算の減り方（上限 / 実額 / セッション）     上限 2500 / 実額 1000 / $0.01：4 回通り 5 回目で拒否 → 上限額で減っている  実測（Base mainnet、CDP facilitator で settle）
+AC-3c  各回の残予算（前 → 署名後 → settle 5 秒後）         0.01 USD→0.0075 USD→0.0075 USD, 0.0075 USD→0.005 USD→0.005 USD, 0.005 USD→0.0025 USD→0.0025 USD, 0.0025 USD→0 USD→0 USD  実測
+AC-3c  Permit2 の allowance（試験前 → 試験後 → 縮めた後）  1 → 8000 → 1（1 を確認）                                      実測
+AC-3c  縮めるステップ（approve を 1 に）の gas 代          0.000000229518 ETH（tx 0x0c7827cec3…）                        実測
+AC-3c  縮めるステップの予算の減り方                        0.01 USD → 0.009999 USD（専用セッション $0.01）               実測
+AC-3c  ウォレット操作の回数（$0.005/回）                   試験 5 回 + 縮める 1 回 = 6 回（$0.030）                      実測
 AC-3b  BlockRun（exact の参照値）                          upto を返さない：exact eip155:8453 2000 / 支払い 1 回         実測
 ```
 

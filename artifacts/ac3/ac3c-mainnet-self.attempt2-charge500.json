@@ -1,0 +1,84 @@
+{
+  "measuredAt": "2026-11-28T06:38:22.353Z",
+  "seller": "self（402 を自分で組み、Coinbase CDP facilitator で settle。payTo = 本人の別ウォレット）",
+  "facilitator": "https://api.cdp.coinbase.com/platform/v2/x402",
+  "facilitatorAddress": "0x59B7Ebc67a3d627FABAF06768c818638452Ae704",
+  "cap_atomic": "2500",
+  "charge_atomic": "500",
+  "session_max_usd": "0.01",
+  "permit2AllowanceLimit_first_call_only": "11000",
+  "payto_guard": "allowed (seller=self)",
+  "guards": {
+    "allow_mainnet": true
+  },
+  "executed": true,
+  "successful_calls": 0,
+  "first_rejected_call": null,
+  "verdict": "未判定（facilitator が verify / settle を断った。AgentCore の拒否ではない）",
+  "approve_tx": {
+    "txHash": "0xb09a5748d5bc6a82d59d3565516056db5868e9613997f7e3577917347fe1f322",
+    "blockNumber": "63287647",
+    "value": "11000",
+    "gasUsed": "38265",
+    "gasCostEth": "0.00000022959"
+  },
+  "approve_gas_eth": "0.00000022959",
+  "eth": {
+    "before": "0.000098972605716593",
+    "after": "0.000098512664702618"
+  },
+  "allowance_permit2": {
+    "unit": "USDC の最小単位（6 decimals）",
+    "before_test": "1",
+    "after_test": "11000",
+    "after_shrink": "1"
+  },
+  "shrink": {
+    "executed": true,
+    "processPaymentId": "7aa065ae-baf7-4e9a-8324-3188efba84f5",
+    "status": "PROOF_GENERATED",
+    "budget_before": "0.01 USD",
+    "budget_after": "0.009999 USD",
+    "approve_tx": {
+      "txHash": "0x3cbddddee00c5a1092c27fa80ee7a2195ff5ed8f10479f7a67cc7b4b915f78d9",
+      "blockNumber": "63287692",
+      "value": "1",
+      "gasUsed": "38253",
+      "gasCostEth": "0.000000229518"
+    },
+    "approve_gas_eth": "0.000000229518",
+    "allowance_after": "1",
+    "allowance_is_1": true
+  },
+  "wallet_operations": {
+    "test_process_payment": 1,
+    "shrink_process_payment": 1,
+    "fee_per_operation_usd": "0.005"
+  },
+  "calls": [
+    {
+      "i": 1,
+      "permit2AllowanceLimit": "11000",
+      "budget_before": "0.01 USD",
+      "processPaymentId": "a608ce4f-76e9-4500-924c-460802d131e9",
+      "status": "PROOF_GENERATED",
+      "budget_after_proof": "0.0075 USD",
+      "verify": {
+        "httpStatus": 200,
+        "isValid": true,
+        "payer": "0xd66770b8769F2b5eA0D86476A24965a5AD2987B5"
+      },
+      "settle": {
+        "httpStatus": 400,
+        "errorMessage": "amount is too low: 500",
+        "errorReason": "amount_too_low",
+        "network": "eip155:8453",
+        "success": false
+      },
+      "error": {
+        "name": "facilitator_settle_failed"
+      },
+      "budget_after_settle_5s": "0.0075 USD"
+    }
+  ]
+}

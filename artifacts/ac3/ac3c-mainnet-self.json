@@ -1,0 +1,159 @@
+{
+  "measuredAt": "2026-11-28T06:39:00.613Z",
+  "seller": "self（402 を自分で組み、Coinbase CDP facilitator で settle。payTo = 本人の別ウォレット）",
+  "facilitator": "https://api.cdp.coinbase.com/platform/v2/x402",
+  "facilitatorAddress": "0x59B7Ebc67a3d627FABAF06768c818638452Ae704",
+  "cap_atomic": "2500",
+  "charge_atomic": "1000",
+  "session_max_usd": "0.01",
+  "permit2AllowanceLimit_first_call_only": "12000",
+  "payto_guard": "allowed (seller=self)",
+  "guards": {
+    "allow_mainnet": true
+  },
+  "executed": true,
+  "successful_calls": 4,
+  "first_rejected_call": 5,
+  "verdict": "上限額で減っている",
+  "approve_tx": {
+    "txHash": "0xe2f8df30b0876e8a04a3e8148df3be26497a2a62494a2f5ea2369df70414dfca",
+    "blockNumber": "63287839",
+    "value": "12000",
+    "gasUsed": "38265",
+    "gasCostEth": "0.00000022959"
+  },
+  "approve_gas_eth": "0.00000022959",
+  "eth": {
+    "before": "0.000098512664702618",
+    "after": "0.0000980527105353"
+  },
+  "allowance_permit2": {
+    "unit": "USDC の最小単位（6 decimals）",
+    "before_test": "1",
+    "after_test": "8000",
+    "after_shrink": "1"
+  },
+  "shrink": {
+    "executed": true,
+    "processPaymentId": "d30d07b7-dc51-4e33-a6c8-da8acab00090",
+    "status": "PROOF_GENERATED",
+    "budget_before": "0.01 USD",
+    "budget_after": "0.009999 USD",
+    "approve_tx": {
+      "txHash": "0x0c7827cec35bdf582b328a6ced16eccba76675d684b789bd0a74dbd51fd61cb5",
+      "blockNumber": "63288000",
+      "value": "1",
+      "gasUsed": "38253",
+      "gasCostEth": "0.000000229518"
+    },
+    "approve_gas_eth": "0.000000229518",
+    "allowance_after": "1",
+    "allowance_is_1": true
+  },
+  "wallet_operations": {
+    "test_process_payment": 5,
+    "shrink_process_payment": 1,
+    "fee_per_operation_usd": "0.005"
+  },
+  "calls": [
+    {
+      "i": 1,
+      "permit2AllowanceLimit": "12000",
+      "budget_before": "0.01 USD",
+      "processPaymentId": "67e8196a-3ebd-4c31-9ac3-3896f35b773c",
+      "status": "PROOF_GENERATED",
+      "budget_after_proof": "0.0075 USD",
+      "verify": {
+        "httpStatus": 200,
+        "isValid": true,
+        "payer": "0xd66770b8769F2b5eA0D86476A24965a5AD2987B5"
+      },
+      "settle": {
+        "httpStatus": 200,
+        "amount": "1000",
+        "network": "eip155:8453",
+        "payer": "0xd66770b8769F2b5eA0D86476A24965a5AD2987B5",
+        "success": true,
+        "transaction": "0x0b1dff0c314c6d3d53402dfa6db325826288f9b506a4003d5246a6b0ddd2ec29"
+      },
+      "budget_after_settle_5s": "0.0075 USD"
+    },
+    {
+      "i": 2,
+      "permit2AllowanceLimit": null,
+      "budget_before": "0.0075 USD",
+      "processPaymentId": "96049f3b-7284-4c0f-bca7-cb723bafca29",
+      "status": "PROOF_GENERATED",
+      "budget_after_proof": "0.005 USD",
+      "verify": {
+        "httpStatus": 200,
+        "isValid": true,
+        "payer": "0xd66770b8769F2b5eA0D86476A24965a5AD2987B5"
+      },
+      "settle": {
+        "httpStatus": 200,
+        "amount": "1000",
+        "network": "eip155:8453",
+        "payer": "0xd66770b8769F2b5eA0D86476A24965a5AD2987B5",
+        "success": true,
+        "transaction": "0xf955385e3bcd532b1748aba1729b0ffdee6918536cd0ce82c967631384bf2287"
+      },
+      "budget_after_settle_5s": "0.005 USD"
+    },
+    {
+      "i": 3,
+      "permit2AllowanceLimit": null,
+      "budget_before": "0.005 USD",
+      "processPaymentId": "b0572fa3-f7e7-463d-ab7b-eb15441202ee",
+      "status": "PROOF_GENERATED",
+      "budget_after_proof": "0.0025 USD",
+      "verify": {
+        "httpStatus": 200,
+        "isValid": true,
+        "payer": "0xd66770b8769F2b5eA0D86476A24965a5AD2987B5"
+      },
+      "settle": {
+        "httpStatus": 200,
+        "amount": "1000",
+        "network": "eip155:8453",
+        "payer": "0xd66770b8769F2b5eA0D86476A24965a5AD2987B5",
+        "success": true,
+        "transaction": "0x2e8c79fc23e4f4c17e46ffc6779fe854c7f92f21adcc68d7fe1c2e6fc8b5f8bc"
+      },
+      "budget_after_settle_5s": "0.0025 USD"
+    },
+    {
+      "i": 4,
+      "permit2AllowanceLimit": null,
+      "budget_before": "0.0025 USD",
+      "processPaymentId": "1bd16024-1aee-4d62-908d-ad03308822c9",
+      "status": "PROOF_GENERATED",
+      "budget_after_proof": "0 USD",
+      "verify": {
+        "httpStatus": 200,
+        "isValid": true,
+        "payer": "0xd66770b8769F2b5eA0D86476A24965a5AD2987B5"
+      },
+      "settle": {
+        "httpStatus": 200,
+        "amount": "1000",
+        "network": "eip155:8453",
+        "payer": "0xd66770b8769F2b5eA0D86476A24965a5AD2987B5",
+        "success": true,
+        "transaction": "0x97fb71ef18a7841606f47c786e8c5509504a81f5d6c8bce42a3f0567ee2e2158"
+      },
+      "budget_after_settle_5s": "0 USD"
+    },
+    {
+      "i": 5,
+      "permit2AllowanceLimit": null,
+      "budget_before": "0 USD",
+      "error": {
+        "name": "ValidationException",
+        "message": "Insufficient budget for session payment-session-YafzQQii8DCCatt. Pending amount: 0 USD, Transaction amount: 0.002500 USD",
+        "httpStatus": 400
+      },
+      "budget_after": "0 USD"
+    }
+  ]
+}

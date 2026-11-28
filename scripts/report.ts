@@ -310,6 +310,7 @@ function ac3(): { md: string; tableText: string } {
   const b3 = A("ac3/ac3b-mainnet.json");
   const s2 = b3?.["sellers"]?.["2s"] as J | undefined;
   const br = b3?.["sellers"]?.["blockrun"] as J | undefined;
+  const c3 = A("ac3/ac3c-mainnet-self.json");
   const uptoOffer = (s2?.["probe"]?.["accepts"] as J[] | undefined)?.find((a) => a["scheme"] === "upto");
   const paidRuns = (sel: J | undefined) => ((sel?.["runs"] ?? []) as J[]).filter((r) => r["http_status"]);
   const liveRan = lv?.["executed"] === true;
@@ -366,6 +367,23 @@ function ac3(): { md: string; tableText: string } {
       s2?.["paid"] ? "実測" : "未実施（同上）",
     ],
     ...allowanceRows("AC-3b", s2?.["paid"] ? s2 : undefined, s2?.["paid"] ? "実測" : "未実施（同上）"),
+    ...(c3?.["executed"]
+      ? [
+          [
+            "AC-3c",
+            "upto の予算の減り方（上限 / 実額 / セッション）",
+            `上限 ${c3["cap_atomic"]} / 実額 ${c3["charge_atomic"]} / $${c3["session_max_usd"]}：${c3["successful_calls"]} 回通り ${c3["first_rejected_call"] ?? "-"} 回目で拒否 → ${c3["verdict"]}`,
+            "実測（Base mainnet、CDP facilitator で settle）",
+          ],
+          [
+            "AC-3c",
+            "各回の残予算（前 → 署名後 → settle 5 秒後）",
+            (c3["calls"] as J[]).filter((r) => !r["error"]).map((r) => `${r["budget_before"]}→${r["budget_after_proof"]}→${r["budget_after_settle_5s"]}`).join(", "),
+            "実測",
+          ],
+          ...allowanceRows("AC-3c", c3, "実測"),
+        ]
+      : []),
     [
       "AC-3b",
       "BlockRun（exact の参照値）",
